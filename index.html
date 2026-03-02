@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kafka Cluster Sizing Calculator</title>
+<link rel="icon" type="image/png" href="https://kafka.apache.org/images/apache.png">
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #f8f9fa; --bg-card: #ffffff; --bg-card-alt: #f8f9fa; --bg-input: #f8f9fa; --bg-hover: #e9ecef;
+  --border: #dee2e6; --border-accent: #ced4da;
+  --text: #212529; --text-dim: #495057; --text-muted: #6c757d;
+  --accent-blue: #0d6efd; --accent-teal: #0b5ace; --accent-orange: #ffa630; --accent-red: #ed6a5a; --accent-purple: #6f42c1;
+  --kafka-teal: #c0e0de; --kafka-teal-light: #d3f3ee; --kafka-dark: #403f4c;
+  --stretch-color: #6f42c1; --stretch-bg: #f2f0f9; --stretch-border: rgba(111,66,193,0.25);
+  --multi-color: #0b5ace; --multi-bg: #e8f0fe; --multi-border: rgba(11,90,206,0.25);
+  --radius: 0.375rem; --radius-sm: 0.25rem;
+  --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04);
+  --font-body: 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; --font-mono: 'JetBrains Mono', monospace; --font-display: 'Open Sans', sans-serif;
+}
+html { scroll-behavior: smooth; }
+body { font-family: var(--font-body); background: var(--bg); color: var(--text); line-height: 1.6; min-height: 100vh; }
+.app { position:relative; z-index:1; max-width:1400px; margin:0 auto; padding:0 24px 80px; }
+
+.hero { padding:48px 0 36px; border-bottom:1px solid var(--border); margin-bottom:36px; position:relative; }
+.hero h1 { font-family:var(--font-display); font-size:2.2rem; font-weight:700; letter-spacing:-0.01em; line-height:1.2; color:var(--text); margin-bottom:8px; }
+.hero p { color:var(--text-dim); font-size:1rem; max-width:700px; line-height:1.6; }
+.hero-badges { display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; }
+.badge { display:inline-flex; align-items:center; gap:5px; padding:4px 12px; border-radius:0.25rem; font-size:0.75rem; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; }
+.badge-kraft { background:var(--kafka-teal-light); color:#262d2c; border:1px solid var(--kafka-teal); }
+.badge-tiered { background:#f2f0f9; color:#6f42c1; border:1px solid #d4c6f0; }
+.badge-topo { background:#ffedd6; color:#664213; border:1px solid #ffdbac; }
+
+.nav-tabs { display:flex; gap:2px; margin-bottom:32px; background:var(--bg-card); border-radius:var(--radius); padding:4px; border:1px solid var(--border); overflow-x:auto; box-shadow:var(--shadow); }
+.nav-tab { flex:1; min-width:105px; padding:10px 12px; background:transparent; border:none; color:var(--text-dim); font-family:var(--font-body); font-size:0.82rem; font-weight:600; cursor:pointer; border-radius:var(--radius-sm); transition:all 0.2s; white-space:nowrap; text-transform:uppercase; letter-spacing:0.02em; }
+.nav-tab:hover { color:var(--text); background:var(--bg-hover); }
+.nav-tab.active { background:linear-gradient(180deg,#4a5568 0%,#2d3748 100%); color:#fff; box-shadow:0 1px 4px rgba(0,0,0,0.2); }
+
+.tab-content { display:none; animation:fadeIn .3s ease; }
+.tab-content.active { display:block; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+/* Input reminder banner */
+.input-banner { display:flex; flex-wrap:wrap; gap:5px 14px; align-items:center; padding:9px 16px; margin-bottom:20px; background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius-sm); font-size:0.74rem; color:var(--text-dim); box-shadow:var(--shadow); }
+.ib-label { font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.04em; margin-right:4px; }
+.ib-val { font-family:var(--font-mono); font-weight:600; color:var(--accent-blue); }
+.ib-sep { color:var(--border-accent); }
+
+.card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:28px; margin-bottom:24px; position:relative; transition:border-color .2s,box-shadow .2s; box-shadow:var(--shadow); }
+.card:hover { border-color:var(--border-accent); box-shadow:0 2px 8px rgba(0,0,0,.08),0 8px 24px rgba(0,0,0,.06); }
+.card-header { display:flex; align-items:center; gap:10px; margin-bottom:20px; padding-bottom:16px; border-bottom:1px solid var(--border); }
+.card-icon { width:36px; height:36px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:1.1rem; }
+.card-icon.blue { background:#d7e3ff; color:#162e66; }
+.card-icon.teal { background:var(--kafka-teal-light); color:#262d2c; }
+.card-icon.orange { background:#ffedd6; color:#664213; }
+.card-icon.purple { background:#f2f0f9; color:#6f42c1; }
+.card-icon.red { background:#fbe1de; color:#5f2a24; }
+.card-icon.indigo { background:#f2f0f9; color:var(--stretch-color); }
+.card-title { font-size:1.1rem; font-weight:700; }
+.card-subtitle { font-size:0.8rem; color:var(--text-dim); margin-top:2px; }
+
+.grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
+.grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:24px; }
+@media(max-width:900px) { .grid-2,.grid-3 { grid-template-columns:1fr; } }
+
+.form-group { margin-bottom:16px; }
+.form-label { display:flex; align-items:center; gap:6px; font-size:0.82rem; font-weight:600; color:var(--text-dim); margin-bottom:6px; text-transform:uppercase; letter-spacing:0.04em; }
+.form-input { width:100%; padding:10px 14px; background:var(--bg-input); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--accent-blue); font-family:var(--font-mono); font-size:0.95rem; font-weight:600; transition:all .2s; outline:none; }
+.form-input:focus { border-color:var(--accent-blue); box-shadow:0 0 0 3px rgba(13,110,253,.15); }
+.form-input:hover { border-color:var(--border-accent); }
+.form-unit { font-size:0.72rem; color:var(--text-muted); margin-top:3px; font-family:var(--font-mono); }
+.form-select { width:100%; padding:10px 14px; background:var(--bg-input); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--accent-blue); font-family:var(--font-mono); font-size:0.95rem; font-weight:600; cursor:pointer; outline:none; appearance:none; background-image:url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%238890a4' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 12px center; }
+.form-select:focus { border-color:var(--accent-blue); box-shadow:0 0 0 3px rgba(13,110,253,.15); }
+.form-row { display:flex; gap:12px; }
+.form-row .form-group { flex:1; }
+
+.tip { position:relative; display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; border-radius:50%; background:var(--border); color:var(--text-muted); font-size:0.6rem; font-weight:700; cursor:help; flex-shrink:0; border:1px solid var(--border-accent); }
+.tip::after { content:attr(data-tip); position:absolute; bottom:calc(100% + 8px); left:50%; transform:translateX(-50%); background:var(--kafka-dark); color:#f8f9fa; padding:10px 14px; border-radius:var(--radius-sm); font-size:0.78rem; font-weight:400; font-family:var(--font-body); line-height:1.5; white-space:normal; width:280px; text-transform:none; letter-spacing:0; pointer-events:none; opacity:0; transition:opacity .2s; z-index:100; box-shadow:0 8px 24px rgba(0,0,0,.18); border:1px solid rgba(0,0,0,.1); }
+.tip:hover::after { opacity:1; }
+
+.topology-toggle { display:flex; gap:0; margin-bottom:28px; border-radius:var(--radius); overflow:hidden; border:1px solid var(--border); box-shadow:var(--shadow); }
+.topo-btn { flex:1; padding:16px 20px; background:var(--bg-card); border:none; color:var(--text-dim); font-family:var(--font-body); font-size:.9rem; font-weight:600; cursor:pointer; transition:all .25s; text-align:left; position:relative; }
+.topo-btn .topo-label { font-size:1rem; margin-bottom:4px; }
+.topo-btn .topo-desc { font-size:.75rem; font-weight:400; opacity:.7; line-height:1.4; }
+.topo-btn:first-child { border-right:1px solid var(--border); }
+.topo-btn.active-stretch { background:var(--stretch-bg); color:var(--stretch-color); }
+.topo-btn.active-multi { background:var(--multi-bg); color:var(--multi-color); }
+.topo-btn::before { content:''; position:absolute; top:0; left:0; width:100%; height:3px; background:transparent; transition:background .25s; }
+.topo-btn.active-stretch::before { background:var(--stretch-color); }
+.topo-btn.active-multi::before { background:var(--multi-color); }
+
+.topo-context { display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:4px; font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; }
+.topo-context.stretch { background:var(--stretch-bg); color:var(--stretch-color); border:1px solid var(--stretch-border); }
+.topo-context.multi { background:var(--multi-bg); color:var(--multi-color); border:1px solid var(--multi-border); }
+
+.result-row { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--border); }
+.result-row:last-child { border-bottom:none; }
+.result-label { font-size:.85rem; color:var(--text-dim); display:flex; align-items:center; gap:6px; }
+.result-value { font-family:var(--font-mono); font-size:1rem; font-weight:700; color:var(--text); }
+.result-value.highlight { color:var(--accent-teal); font-size:1.15rem; }
+.result-value.warn { color:var(--accent-orange); }
+.result-value.stretch-val { color:var(--stretch-color); }
+.result-value.multi-val { color:var(--multi-color); }
+.result-unit { font-size:.75rem; color:var(--text-muted); font-weight:400; margin-left:4px; }
+
+.metric-big { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:20px; text-align:center; position:relative; overflow:hidden; box-shadow:var(--shadow); }
+.metric-big::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; }
+.metric-big.blue::before { background:var(--accent-blue); } .metric-big.teal::before { background:var(--accent-teal); }
+.metric-big.orange::before { background:var(--accent-orange); } .metric-big.purple::before { background:var(--accent-purple); }
+.metric-big.stretch::before { background:var(--stretch-color); } .metric-big.multi::before { background:var(--multi-color); }
+.metric-number { font-family:var(--font-mono); font-size:2.2rem; font-weight:700; line-height:1.2; }
+.metric-number.blue { color:var(--accent-blue); } .metric-number.teal { color:var(--accent-teal); }
+.metric-number.orange { color:var(--accent-orange); } .metric-number.purple { color:var(--accent-purple); }
+.metric-number.stretch-val { color:var(--stretch-color); } .metric-number.multi-val { color:var(--multi-color); }
+.metric-desc { font-size:.78rem; color:var(--text-dim); margin-top:4px; text-transform:uppercase; letter-spacing:.04em; font-weight:600; }
+.metric-sub { font-size:.72rem; color:var(--text-muted); margin-top:6px; font-family:var(--font-mono); }
+
+.cmp-table { width:100%; border-collapse:collapse; margin-top:12px; }
+.cmp-table th { padding:10px 14px; font-size:.78rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; text-align:left; border-bottom:2px solid var(--border); background:var(--bg-input); }
+.cmp-table th.stretch-hdr { color:var(--stretch-color); } .cmp-table th.multi-hdr { color:var(--multi-color); }
+.cmp-table td { padding:10px 14px; font-size:.85rem; border-bottom:1px solid var(--border); vertical-align:top; }
+.cmp-table td:first-child { color:var(--text-dim); font-weight:600; }
+.cmp-table td.stretch-td { color:var(--stretch-color); font-family:var(--font-mono); font-weight:600; font-size:.82rem; }
+.cmp-table td.multi-td { color:var(--multi-color); font-family:var(--font-mono); font-weight:600; font-size:.82rem; }
+
+.info-box { padding:16px 20px; border-radius:var(--radius-sm); margin:16px 0; font-size:.85rem; line-height:1.6; border-left:3px solid; }
+.info-box.warn { background:#fbe1de; border-color:var(--accent-red); color:#5f2a24; }
+.info-box.info { background:#d7e3ff; border-color:var(--accent-blue); color:var(--text-dim); }
+.info-box.stretch-info { background:var(--stretch-bg); border-color:var(--stretch-color); color:var(--text-dim); }
+.info-box.multi-info { background:var(--multi-bg); border-color:var(--multi-color); color:var(--text-dim); }
+.info-box strong { color:var(--text); }
+.info-box a { color:var(--accent-blue); text-decoration:none; }
+.info-box a:hover { text-decoration:underline; }
+.info-box code { background:rgba(0,0,0,.06); padding:1px 5px; border-radius:3px; font-size:.82rem; }
+
+.doc-link { display:inline-flex; align-items:center; gap:5px; color:var(--accent-blue); font-size:.78rem; text-decoration:none; font-weight:600; transition:color .2s; }
+.doc-link:hover { color:#0b5ace; text-decoration:underline; }
+.doc-link svg { width:12px; height:12px; }
+.ref-links { display:flex; flex-wrap:wrap; gap:8px 16px; margin-top:10px; padding-top:10px; border-top:1px solid var(--border); }
+.formula-block { background:var(--kafka-teal-light); border:1px solid var(--kafka-teal); border-radius:var(--radius-sm); padding:12px 16px; font-family:var(--font-mono); font-size:.82rem; color:#262d2c; margin:10px 0; overflow-x:auto; }
+.section-title { font-family:var(--font-display); font-size:1.4rem; font-weight:700; color:var(--text); margin:40px 0 20px; display:flex; align-items:center; gap:12px; }
+.section-title .line { flex:1; height:1px; background:var(--border); }
+
+.mon-table { width:100%; border-collapse:collapse; }
+.mon-table th { padding:10px 12px; font-size:.75rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; text-align:left; background:var(--bg-input); border-bottom:2px solid var(--border); color:var(--text-dim); }
+.mon-table td { padding:10px 12px; font-size:.82rem; border-bottom:1px solid var(--border); vertical-align:top; }
+.mon-table tr:hover td { background:rgba(0,0,0,.02); }
+.mon-metric { font-family:var(--font-mono); font-weight:600; color:var(--text); font-size:.8rem; }
+.mon-warn { color:var(--accent-orange); font-weight:600; }
+.mon-crit { color:var(--accent-red); font-weight:600; }
+
+.limiting-badge { display:inline-block; padding:2px 8px; border-radius:0.25rem; font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; background:#ffedd6; color:#664213; border:1px solid #ffdbac; }
+
+/* Architecture diagrams */
+.arch-diagram { display:flex; justify-content:center; gap:20px; padding:28px 20px; margin:16px 0; background:var(--bg-input); border-radius:var(--radius); border:1px solid var(--border); flex-wrap:wrap; align-items:stretch; }
+.dc-box { padding:18px; border-radius:var(--radius); min-width:230px; max-width:340px; flex:1; }
+.dc-box.stretch-dc { border:2px solid var(--stretch-border); background:var(--stretch-bg); }
+.dc-box.multi-dc { border:2px solid var(--multi-border); background:var(--multi-bg); }
+.dc-box h4 { font-size:.82rem; font-weight:700; margin-bottom:10px; text-transform:uppercase; letter-spacing:.04em; }
+.dc-box.stretch-dc h4 { color:var(--stretch-color); } .dc-box.multi-dc h4 { color:var(--multi-color); }
+.dc-box p { font-size:.72rem; color:var(--text-dim); line-height:1.5; }
+.dc-comp { display:flex; justify-content:space-between; align-items:center; padding:5px 10px; margin:3px 0; border-radius:4px; font-size:.73rem; font-weight:600; font-family:var(--font-mono); }
+.dc-box.stretch-dc .dc-comp { background:rgba(124,92,191,.08); color:var(--stretch-color); }
+.dc-box.multi-dc .dc-comp { background:rgba(25,113,194,.08); color:var(--multi-color); }
+.dc-comp .dc-cnt { font-weight:700; font-size:.85rem; }
+.arrow-col { display:flex; align-items:center; justify-content:center; flex-direction:column; gap:4px; min-width:56px; }
+.arrow-col .arrow-lbl { font-size:.66rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; text-align:center; line-height:1.3; }
+.arrow-col .arrow-ico { font-size:1.5rem; color:var(--text-muted); }
+
+::-webkit-scrollbar { width:8px; height:8px; } ::-webkit-scrollbar-track { background:var(--bg); } ::-webkit-scrollbar-thumb { background:var(--border); border-radius:4px; } ::-webkit-scrollbar-thumb:hover { background:var(--border-accent); }
+
+.scn-table { width:100%; border-collapse:collapse; min-width:700px; }
+.scn-table th { padding:10px 14px; font-size:.78rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; text-align:center; border-bottom:2px solid var(--border); background:var(--bg-input); color:var(--text-dim); }
+.scn-table th:first-child { text-align:left; }
+.scn-table th.scn-hdr { color:var(--accent-blue); }
+.scn-table td { padding:8px 14px; font-size:.85rem; border-bottom:1px solid var(--border); text-align:center; vertical-align:middle; }
+.scn-table td:first-child { text-align:left; color:var(--text-dim); font-weight:600; font-size:.82rem; }
+.scn-table .scn-section td { background:var(--bg-input); font-weight:700; color:var(--text); font-size:.78rem; text-transform:uppercase; letter-spacing:.04em; padding:10px 14px; border-bottom:2px solid var(--border); }
+.scn-table .scn-result td { font-weight:700; }
+.scn-table .scn-result td:not(:first-child) { color:var(--accent-teal); font-family:var(--font-mono); font-size:.92rem; }
+.scn-table .scn-highlight td { background:rgba(55,114,255,.06); }
+.scn-table .scn-highlight td:not(:first-child) { color:var(--accent-teal); font-family:var(--font-mono); font-weight:700; font-size:1rem; }
+.scn-input { width:100%; max-width:120px; padding:6px 10px; background:#ffedd6; border:1px solid #ffdbac; border-radius:var(--radius-sm); color:var(--text); font-family:var(--font-mono); font-size:.88rem; font-weight:600; text-align:right; outline:none; transition:border-color .2s; }
+.scn-input:focus { border-color:var(--accent-blue); box-shadow:0 0 0 3px rgba(13,110,253,.15); }
+.scn-calc { font-family:var(--font-mono); font-weight:600; color:var(--text); font-size:.85rem; }
+</style>
+</head>
+<body>
+<div class="app">
+
+<header class="hero">
+  <h1>Kafka Cluster Sizing Calculator</h1>
+  <p>Derive broker count, hardware specs, storage, partitions, and cross-datacenter infrastructure from your workload parameters.</p>
+  <div class="hero-badges"><span class="badge badge-kraft">KRaft Mode</span><span class="badge badge-tiered">Tiered Storage</span><span class="badge badge-topo">Multi-DC</span></div>
+</header>
+
+<nav class="nav-tabs" role="tablist">
+  <button class="nav-tab active" onclick="showTab('inputs',this)">Inputs</button>
+  <button class="nav-tab" onclick="showTab('throughput',this)">Throughput</button>
+  <button class="nav-tab" onclick="showTab('storage',this)">Storage</button>
+  <button class="nav-tab" onclick="showTab('brokers',this)">Brokers</button>
+  <button class="nav-tab" onclick="showTab('topology',this)">Cluster Topology</button>
+  <button class="nav-tab" onclick="showTab('partitions',this)">Partitions</button>
+  <button class="nav-tab" onclick="showTab('scenarios',this)">Scenarios</button>
+  <button class="nav-tab" onclick="showTab('monitoring',this)">Monitoring</button>
+  <button class="nav-tab" onclick="showTab('summary',this)">Summary</button>
+</nav>
+
+<!-- ═══ INPUTS ═══ -->
+<div id="tab-inputs" class="tab-content active">
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header"><div class="card-icon blue">⚡</div><div><div class="card-title">Workload Parameters</div><div class="card-subtitle">Core metrics driving all calculations</div></div></div>
+      <div class="form-group"><label class="form-label">Event Rate <span class="tip" data-tip="Sustained events/sec at steady state. Measure at peak business hours, not daily average.">?</span></label><input type="number" class="form-input" id="eventRate" value="100000" oninput="recalc()"><div class="form-unit">events / second</div></div>
+      <div class="form-group"><label class="form-label">Avg Event Size <span class="tip" data-tip="Average serialized message size (key + value + headers). Most sensitive variable — a 2× error doubles all infra.">?</span></label><input type="number" class="form-input" id="eventSize" value="1024" oninput="recalc()"><div class="form-unit">bytes</div></div>
+      <div class="form-group"><label class="form-label">Peak Multiplier <span class="tip" data-tip="Burst-to-steady ratio. Telecom/financial: 3–5×. Web/SaaS: 2–3×.">?</span></label><input type="number" class="form-input" id="peakMultiplier" value="3" step="0.5" oninput="recalc()"><div class="form-unit">× steady state</div></div>
+      <div class="form-group"><label class="form-label">Compression <span class="tip" data-tip="Producer codec. LZ4 ≈ 4:1 (recommended). Snappy ≈ 3:1. ZSTD ≈ 5:1 but more CPU.">?</span></label>
+        <select class="form-select" id="compression" onchange="recalc()"><option value="1">None (1:1)</option><option value="3">Snappy (~3:1)</option><option value="4" selected>LZ4 (~4:1)</option><option value="5">ZSTD (~5:1)</option></select></div>
+      <div class="ref-links"><a class="doc-link" href="https://kafka.apache.org/documentation/#producerconfigs_compression.type" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> compression.type</a></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-icon teal">🔁</div><div><div class="card-title">Replication & Retention</div><div class="card-subtitle">Durability and data lifecycle</div></div></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Replication Factor <span class="tip" data-tip="Number of partition copies. 3 is standard production. Higher = more durability but more disk and replication traffic.">?</span></label><input type="number" class="form-input" id="rf" value="3" min="1" max="7" oninput="recalc()"><div class="form-unit">copies</div></div>
+        <div class="form-group"><label class="form-label">min.insync.replicas <span class="tip" data-tip="Min replicas ACKing a write for acks=all. Typically RF−1. With RF=3 and min.isr=2, tolerates 1 broker failure.">?</span></label><input type="number" class="form-input" id="minIsr" value="2" min="1" max="7" oninput="recalc()"><div class="form-unit">typically RF − 1</div></div>
+      </div>
+      <div class="form-group"><label class="form-label">Retention Period <span class="tip" data-tip="How long data stays on local (hot) storage. Use tiered storage for long retention.">?</span></label><input type="number" class="form-input" id="retention" value="7" oninput="recalc()"><div class="form-unit">days</div></div>
+      <div class="form-group"><label class="form-label">Consumer Groups <span class="tip" data-tip="Independent consumer groups reading the data. Each multiplies read I/O.">?</span></label><input type="number" class="form-input" id="consumers" value="3" oninput="recalc()"><div class="form-unit">independent groups</div></div>
+      <div class="ref-links">
+        <a class="doc-link" href="https://kafka.apache.org/documentation/#replication" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> Replication</a>
+        <a class="doc-link" href="https://kafka.apache.org/documentation/#topicconfigs_min.insync.replicas" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> min.insync.replicas</a>
+      </div>
+    </div>
+  </div>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header"><div class="card-icon orange">🏗️</div><div><div class="card-title">Broker Hardware Assumptions</div><div class="card-subtitle">Per-broker capacity ceilings</div></div></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Disk Write (single) <span class="tip" data-tip="Sustained sequential write per disk. NVMe ≈ 500 MB/s. SSD ≈ 300 MB/s. HDD ≈ 150 MB/s. Multiplied by JBOD count.">?</span></label><input type="number" class="form-input" id="maxDiskWrite" value="500" oninput="recalc()"><div class="form-unit">MB/s per disk</div></div>
+        <div class="form-group"><label class="form-label">JBOD Disks / Broker <span class="tip" data-tip="Independent disks per broker (JBOD mode, KIP-112). Each disk adds throughput linearly. 1 = single disk or RAID.">?</span></label><input type="number" class="form-input" id="jbodCount" value="1" min="1" max="24" oninput="recalc()"><div class="form-unit">disks (1=single, 4–12 JBOD)</div></div>
+      </div>
+      <div class="form-group"><label class="form-label">Max Storage / Broker <span class="tip" data-tip="Total practical storage per broker across all disks. Keep manageable for rebalancing time.">?</span></label><input type="number" class="form-input" id="maxStorage" value="15" oninput="recalc()"><div class="form-unit">TB total across all disks</div></div>
+      <div class="form-group"><label class="form-label">NIC Bandwidth <span class="tip" data-tip="Network interface capacity. Pick a preset or type a custom value. 10G ≈ 1,250 MB/s. 25G ≈ 3,125 MB/s.">?</span></label>
+        <div class="form-row" style="gap:8px">
+          <select class="form-select" id="nicPreset" onchange="applyNicPreset()" style="flex:1.2"><option value="1250">10 Gbps</option><option value="3125" selected>25 Gbps</option><option value="6250">2×25 Gbps bonded</option><option value="">Custom…</option></select>
+          <input type="number" class="form-input" id="nic" value="3125" oninput="syncNicPreset();recalc()" style="flex:0.8">
+        </div>
+        <div class="form-unit">MB/s (editable — preset or custom)</div></div>
+      <div class="form-group"><label class="form-label">Target Utilization <span class="tip" data-tip="Max utilization ceiling. 50% leaves headroom for rolling upgrades (1 broker offline = N-1 absorb load), rebalancing, and bursts. Editable — adjust to your operational risk tolerance.">?</span></label><input type="number" class="form-input" id="utilization" value="50" min="20" max="90" oninput="recalc()"><div class="form-unit">% (50 recommended, 60–70 tighter)</div></div>
+      <div class="ref-links"><a class="doc-link" href="https://cwiki.apache.org/confluence/display/KAFKA/KIP-112%3A+Handle+disk+failure+for+JBOD" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> KIP-112 JBOD</a></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-icon purple">☁️</div><div><div class="card-title">Tiered Storage</div><div class="card-subtitle">Offload cold data to object storage</div></div></div>
+      <div class="form-group"><label class="form-label">Enable Tiered Storage <span class="tip" data-tip="KIP-405. Offloads old log segments to S3/GCS/Azure Blob. Dramatically reduces local disk for long retention.">?</span></label>
+        <select class="form-select" id="tieredStorage" onchange="recalc()"><option value="0">Disabled</option><option value="1" selected>Enabled</option></select></div>
+      <div class="form-group" id="hotTierGroup"><label class="form-label">Hot Tier Retention <span class="tip" data-tip="Hours of data on fast local NVMe. Tailing consumers read from here; historical consumers read from object storage.">?</span></label><input type="number" class="form-input" id="hotTierHours" value="24" oninput="recalc()"><div class="form-unit">hours (6–48 typical)</div></div>
+      <div class="info-box info"><strong>When to use:</strong> Recommended when retention &gt; 24h and total storage exceeds ~50 TB. Reduces local disk by 70–90%.<br><br><a href="https://cwiki.apache.org/confluence/display/KAFKA/KIP-405%3A+Kafka+Tiered+Storage" target="_blank">📄 KIP-405: Kafka Tiered Storage</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ THROUGHPUT ═══ -->
+<div id="tab-throughput" class="tab-content"><div id="banner-throughput" class="input-banner"></div>
+  <div class="section-title">Throughput Analysis <span class="line"></span></div>
+  <div class="grid-3" id="throughput-metrics"></div>
+  <div class="card"><div class="card-header"><div class="card-icon blue">📊</div><div><div class="card-title">Throughput Breakdown</div><div class="card-subtitle">All rates at peak (steady × multiplier)</div></div></div><div id="throughput-details"></div>
+    <div class="formula-block">Total Broker I/O = R × S × P × (RF + C)  — R=rate, S=size, P=peak, RF=replication, C=consumers</div>
+    <div class="ref-links"><a class="doc-link" href="https://kafka.apache.org/documentation/#design_persistence" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> Persistence design</a></div></div>
+</div>
+
+<!-- ═══ STORAGE ═══ -->
+<div id="tab-storage" class="tab-content"><div id="banner-storage" class="input-banner"></div>
+  <div class="section-title">Storage Sizing <span class="line"></span></div>
+  <div class="grid-3" id="storage-metrics"></div>
+  <div class="card"><div class="card-header"><div class="card-icon purple">💾</div><div><div class="card-title">Storage Breakdown</div></div></div><div id="storage-details"></div>
+    <div class="formula-block">Total = R × S × T(sec) × RF / CR × 1.35  |  Hot = R × S × T_hot(sec) × RF / CR × 1.35</div></div>
+</div>
+
+<!-- ═══ BROKERS ═══ -->
+<div id="tab-brokers" class="tab-content"><div id="banner-brokers" class="input-banner"></div>
+  <div class="section-title">Broker & Controller Sizing <span class="line"></span></div>
+  <div class="grid-2">
+    <div class="card"><div class="card-header"><div class="card-icon blue">🖥️</div><div><div class="card-title">Broker Count by Constraint</div><div class="card-subtitle">Most constraining resource determines count</div></div></div><div id="broker-constraints"></div>
+      <div class="formula-block">Brokers = max(network, disk_write, storage, RF) / target_utilization</div>
+      <div class="ref-links"><a class="doc-link" href="https://kafka.apache.org/documentation/#brokerconfigs_log.dirs" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> log.dirs (JBOD)</a></div></div>
+    <div class="card"><div class="card-header"><div class="card-icon teal">⚙️</div><div><div class="card-title">Recommended Hardware / Broker</div></div></div><div id="broker-hardware"></div></div>
+  </div>
+  <div class="card"><div class="card-header"><div class="card-icon orange">🎛️</div><div><div class="card-title">KRaft Controller Sizing</div><div class="card-subtitle">Dedicated metadata quorum — no ZooKeeper</div></div></div><div id="kraft-sizing"></div>
+    <div class="ref-links"><a class="doc-link" href="https://kafka.apache.org/documentation/#kraft" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> KRaft</a> <a class="doc-link" href="https://cwiki.apache.org/confluence/display/KAFKA/KIP-500%3A+Replace+ZooKeeper+with+a+Self-Managed+Metadata+Quorum" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> KIP-500</a></div></div>
+</div>
+
+<!-- ═══ CLUSTER TOPOLOGY ═══ -->
+<div id="tab-topology" class="tab-content"><div id="banner-topology" class="input-banner"></div>
+  <div class="section-title">Cluster Topology <span class="line"></span></div>
+  <div class="topology-toggle">
+    <button class="topo-btn active-stretch" id="btn-stretch" onclick="setTopology('stretch')"><div class="topo-label">🔗 Stretch Cluster</div><div class="topo-desc">Single logical cluster spanning DCs. Synchronous replication via RF distribution.</div></button>
+    <button class="topo-btn" id="btn-multi" onclick="setTopology('multi')"><div class="topo-label">🏢 Multiple Clusters</div><div class="topo-desc">Independent cluster per DC. Asynchronous replication via MirrorMaker 2 / Cluster Linking.</div></button>
+  </div>
+  <div class="form-row" style="max-width:500px;margin-bottom:24px">
+    <div class="form-group"><label class="form-label">Datacenters</label><select class="form-select" id="dcCount" onchange="recalc()"><option value="1">1 (single DC)</option><option value="2" selected>2</option><option value="3">3</option></select></div>
+    <div class="form-group" id="interDcLatencyGroup"><label class="form-label">Inter-DC RTT <span class="tip" data-tip="Round-trip time between DCs. In a stretch cluster, acks=all produces pay this latency. Many event-driven workloads tolerate it well.">?</span></label><input type="number" class="form-input" id="interDcLatency" value="5" oninput="recalc()"><div class="form-unit">ms round-trip</div></div>
+  </div>
+
+  <div id="stretch-content">
+    <div class="arch-diagram" id="stretch-diagram"></div>
+    <div class="info-box stretch-info">
+      <strong>Stretch Cluster:</strong> A single Kafka cluster where <code>broker.rack</code> distributes replicas across DCs. Every produce with <code>acks=all</code> waits for cross-DC acknowledgment. This guarantees <strong>RPO=0</strong> (zero data loss) and <strong>strong data consistency</strong> — all consumers in every DC see the exact same data, with no divergence or conflict resolution needed.
+      <br><br><strong>Latency tradeoff:</strong> produce latency increases by the inter-DC RTT. This is often acceptable for event-driven architectures, batch consumers, and workloads that prioritize correctness over low-latency produce. Tuning <code>linger.ms</code> and batch sizes can amortize the overhead.
+      <br><br><a href="https://kafka.apache.org/documentation/#brokerconfigs_broker.rack" target="_blank">📄 broker.rack</a> · <a href="https://kafka.apache.org/documentation/#topicconfigs_min.insync.replicas" target="_blank">📄 min.insync.replicas</a>
+    </div>
+    <div class="card"><div class="card-header"><div class="card-icon indigo">🔗</div><div><div class="card-title">Stretch Cluster Sizing</div><div class="card-subtitle"><span class="topo-context stretch">Stretch Cluster</span></div></div></div><div id="stretch-sizing"></div></div>
+  </div>
+
+  <div id="multi-content" style="display:none">
+    <div class="arch-diagram" id="multi-diagram"></div>
+    <div class="info-box multi-info">
+      <strong>Multiple Clusters:</strong> Each DC runs an independent Kafka cluster with its own RF internally. Data is replicated asynchronously via <strong>MirrorMaker 2</strong> or <strong>Confluent Cluster Linking</strong>. Produce latency is purely local.
+      <br><br><strong>Consistency tradeoff:</strong> Asynchronous replication means <strong>RPO&gt;0</strong> — data loss is possible on DC failure. In active-active setups, consumers in different DCs may see different data at any given time, message ordering across origins is non-deterministic, and <strong>data divergence</strong> can occur. For use cases requiring strict consistency (financial transactions, inventory management, regulatory data), this may necessitate complex application-level conflict resolution.
+      <br><br><a href="https://kafka.apache.org/documentation/#georeplication" target="_blank">📄 MirrorMaker 2</a> · <a href="https://docs.confluent.io/platform/current/multi-dc-deployments/cluster-linking/index.html" target="_blank">📄 Confluent Cluster Linking</a>
+    </div>
+    <div class="card"><div class="card-header"><div class="card-icon blue">🏢</div><div><div class="card-title">Multi-Cluster Sizing</div><div class="card-subtitle"><span class="topo-context multi">Multiple Clusters</span></div></div></div><div id="multi-sizing"></div></div>
+  </div>
+
+  <div class="card" id="dc-comparison-card" style="display:none"><div class="card-header"><div class="card-icon orange">⚖️</div><div><div class="card-title">Stretch vs Multiple Clusters — Comparison</div></div></div><table class="cmp-table" id="dc-comparison-table"></table></div>
+</div>
+
+<!-- ═══ PARTITIONS ═══ -->
+<div id="tab-partitions" class="tab-content"><div id="banner-partitions" class="input-banner"></div>
+  <div class="section-title">Partition Sizing <span class="line"></span></div>
+  <div class="card"><div class="card-header"><div class="card-icon teal">📦</div><div><div class="card-title">Partition Guidelines</div></div></div><div id="partition-details"></div>
+    <div class="info-box warn"><strong>⚠ Partition count is hard to change later.</strong> Increasing partitions breaks key-based ordering. Decreasing requires topic recreation. Size for 2–3× current throughput.</div>
+    <div class="ref-links"><a class="doc-link" href="https://kafka.apache.org/documentation/#topicconfigs" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> Topic configs</a></div></div>
+</div>
+
+<!-- ═══ SCENARIOS ═══ -->
+<div id="tab-scenarios" class="tab-content">
+  <div class="section-title">Scenario Comparison <span class="line"></span></div>
+  <div class="info-box info" style="margin-top:0">
+    <strong>Compare up to 4 workload profiles side by side.</strong> Each scenario has its own independent inputs. Edit any blue value to see how infrastructure scales across different workloads.
+  </div>
+  <div class="card" style="overflow-x:auto">
+    <div class="card-header"><div class="card-icon blue">📊</div><div><div class="card-title">Side-by-Side Comparison</div><div class="card-subtitle">4 independent scenarios — all inputs editable</div></div></div>
+    <table class="scn-table" id="scenario-table"></table>
+  </div>
+</div>
+
+<!-- ═══ MONITORING ═══ -->
+<div id="tab-monitoring" class="tab-content">
+  <div class="section-title">Monitoring & Alert Thresholds <span class="line"></span></div>
+  <div class="card"><div class="card-header"><div class="card-icon red">🚨</div><div><div class="card-title">Key Metrics</div><div class="card-subtitle">JMX / Prometheus with recommended thresholds</div></div></div>
+    <table class="mon-table"><thead><tr><th>Metric</th><th>Detects</th><th>⚠ Warning</th><th>🔴 Critical</th><th>Action</th></tr></thead><tbody id="monitoring-body"></tbody></table>
+    <div class="ref-links" style="margin-top:16px"><a class="doc-link" href="https://kafka.apache.org/documentation/#monitoring" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> Kafka monitoring</a></div></div>
+</div>
+
+<!-- ═══ SUMMARY ═══ -->
+<div id="tab-summary" class="tab-content"><div id="banner-summary" class="input-banner"></div>
+  <div class="section-title">Infrastructure Summary <span class="line"></span></div>
+  <div class="grid-3" id="summary-headline"></div>
+  <div class="card"><div class="card-header"><div class="card-icon teal">📋</div><div><div class="card-title">Full Sizing Summary</div><div class="card-subtitle" id="summary-topo-label"></div></div></div><div id="summary-details"></div></div>
+</div>
+
+</div>
+<script>
+let topology='stretch';
+function v(id){return parseFloat(document.getElementById(id).value)||0;}
+function setTopology(t){
+  topology=t;
+  document.getElementById('btn-stretch').className='topo-btn'+(t==='stretch'?' active-stretch':'');
+  document.getElementById('btn-multi').className='topo-btn'+(t==='multi'?' active-multi':'');
+  document.getElementById('stretch-content').style.display=t==='stretch'?'block':'none';
+  document.getElementById('multi-content').style.display=t==='multi'?'block':'none';
+  recalc();
+}
+function showTab(name,btn){
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  btn.classList.add('active');
+  recalc();
+}
+function fmtMBs(mb){return mb>=1000?(mb/1000).toFixed(1)+' GB/s':mb.toFixed(1)+' MB/s';}
+function fmtTB(tb){return tb>=1000?(tb/1000).toFixed(1)+' PB':tb.toFixed(1)+' TB';}
+function fmtNum(n){return n.toLocaleString('en-US',{maximumFractionDigits:0});}
+function fmtEvt(n){return n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).toFixed(0)+'K':n.toString();}
+function rr(label,value,cls,tip){
+  const t=tip?` <span class="tip" data-tip="${tip}">?</span>`:'';
+  return `<div class="result-row"><span class="result-label">${label}${t}</span><span class="result-value ${cls||''}">${value}</span></div>`;
+}
+function mc(number,desc,sub,cls){return `<div class="metric-big ${cls}"><div class="metric-number ${cls}">${number}</div><div class="metric-desc">${desc}</div>${sub?`<div class="metric-sub">${sub}</div>`:''}</div>`;}
+
+function banner(R,S,P,RF,isr,T,CR,C,util,jbod,tiered){
+  const cn={'1':'None','3':'Snappy','4':'LZ4','5':'ZSTD'};
+  return `<span class="ib-label">Inputs:</span>
+    <span><span class="ib-val">${fmtEvt(R)}</span> evt/s</span><span class="ib-sep">·</span>
+    <span><span class="ib-val">${S}</span> B</span><span class="ib-sep">·</span>
+    <span>×<span class="ib-val">${P}</span> peak</span><span class="ib-sep">·</span>
+    <span>RF=<span class="ib-val">${RF}</span></span><span class="ib-sep">·</span>
+    <span>ISR=<span class="ib-val">${isr}</span></span><span class="ib-sep">·</span>
+    <span><span class="ib-val">${T}</span>d ret.</span><span class="ib-sep">·</span>
+    <span><span class="ib-val">${cn[CR]||CR}</span></span><span class="ib-sep">·</span>
+    <span><span class="ib-val">${C}</span> cg</span><span class="ib-sep">·</span>
+    <span><span class="ib-val">${util}%</span> util</span>
+    ${jbod>1?`<span class="ib-sep">·</span><span><span class="ib-val">${jbod}×</span> JBOD</span>`:''}
+    ${tiered?`<span class="ib-sep">·</span><span class="ib-val">Tiered</span>`:''}`;
+}
+
+function applyNicPreset(){
+  const sel=document.getElementById('nicPreset');
+  if(sel.value){document.getElementById('nic').value=sel.value;recalc();}
+  else{document.getElementById('nic').focus();}
+}
+function syncNicPreset(){
+  const val=document.getElementById('nic').value;
+  const sel=document.getElementById('nicPreset');
+  const match=[...sel.options].find(o=>o.value===val);
+  sel.value=match?val:'';
+}
+
+function recalc(){
+  const R=v('eventRate'),S=v('eventSize'),P=v('peakMultiplier');
+  const RF=Math.max(1,Math.round(v('rf'))),isr=Math.max(1,Math.round(v('minIsr')));
+  const T=v('retention'),CR=v('compression'),C=v('consumers');
+  const DC=v('dcCount'),util=Math.max(10,v('utilization'))/100;
+  const tiered=v('tieredStorage')===1,hotH=v('hotTierHours');
+  const dwSingle=v('maxDiskWrite'),jbod=Math.max(1,Math.round(v('jbodCount')));
+  const maxDW=dwSingle*jbod;
+  const maxStor=v('maxStorage'),NIC=v('nic'),dcLat=v('interDcLatency');
+
+  document.getElementById('hotTierGroup').style.display=tiered?'block':'none';
+  document.getElementById('interDcLatencyGroup').style.display=DC>1?'block':'none';
+
+  const b=banner(R,S,P,RF,isr,T,CR,C,Math.round(util*100),jbod,tiered);
+  ['throughput','storage','brokers','topology','partitions','summary'].forEach(t=>{const e=document.getElementById('banner-'+t);if(e)e.innerHTML=b;});
+
+  // Throughput
+  const inSteady=R*S/1048576, inPeak=inSteady*P, wirePeak=inPeak/CR;
+  const replW=inPeak*RF, conEgr=inPeak*C, totalIO=inPeak*(RF+C);
+  const xdc=DC>1?wirePeak:0, xdcBw=xdc*2;
+
+  document.getElementById('throughput-metrics').innerHTML=
+    mc(fmtMBs(inPeak),'Peak Ingress',fmtMBs(inSteady)+' steady','blue')+
+    mc(fmtMBs(replW),'Replication Write','RF='+RF+(jbod>1?' · '+jbod+'× JBOD':''),'orange')+
+    mc(fmtMBs(totalIO),'Total Broker I/O','RF='+RF+', C='+C,'teal');
+  document.getElementById('throughput-details').innerHTML=
+    rr('Ingress (steady)',fmtMBs(inSteady),'',`R × S = ${fmtEvt(R)} × ${S} B = ${fmtMBs(inSteady)}`)+
+    rr('Ingress (peak)',fmtMBs(inPeak),'',`Steady × P = ${fmtMBs(inSteady)} × ${P} = ${fmtMBs(inPeak)}`)+
+    rr('Wire ingress (compressed)',fmtMBs(wirePeak),'',`Peak / CR = ${fmtMBs(inPeak)} / ${CR} = ${fmtMBs(wirePeak)}`)+
+    rr('Internal replication write',fmtMBs(replW),'warn',`Peak × RF = ${fmtMBs(inPeak)} × ${RF} = ${fmtMBs(replW)}`)+
+    rr('Consumer egress',fmtMBs(conEgr),'',`Peak × C = ${fmtMBs(inPeak)} × ${C} = ${fmtMBs(conEgr)}`)+
+    rr('Total broker I/O',fmtMBs(totalIO),'highlight',`Peak × (RF + C) = ${fmtMBs(inPeak)} × (${RF} + ${C}) = ${fmtMBs(totalIO)}`)+
+    (DC>1?rr('Cross-DC repl / remote DC',fmtMBs(xdc),'',`Wire ingress (compressed) = ${fmtMBs(wirePeak)}`):'')+
+    (DC>1?rr('Cross-DC bandwidth / remote DC',fmtMBs(xdcBw),'warn',`2 × cross-DC repl = 2 × ${fmtMBs(xdc)} = ${fmtMBs(xdcBw)}`):'');
+
+  // Storage
+  const TB=1099511627776;
+  const rawR=R*S*T*86400/TB, compR=rawR/CR, totRF=compR*RF, totH=totRF*1.35;
+  const hotT=tiered?(R*S*hotH*3600*RF/CR*1.35/TB):totH;
+  const coldT=tiered?Math.max(0,totH-hotT):0;
+  const diskSav=tiered&&totH>0?(1-hotT/totH)*100:0;
+
+  document.getElementById('storage-metrics').innerHTML=
+    mc(fmtTB(totH),'Total with RF & Headroom','RF='+RF+', ×1.35','purple')+
+    mc(fmtTB(hotT),tiered?'Local Disk (Hot)':'Local Disk',tiered?hotH+'h':T+'d','blue')+
+    (tiered?mc(fmtTB(coldT),'Object Storage (Cold)',diskSav.toFixed(0)+'% savings','teal'):mc(fmtTB(compR),'Compressed (no RF)','CR='+CR+':1','teal'));
+  document.getElementById('storage-details').innerHTML=
+    rr('Raw retention (uncompressed)',fmtTB(rawR),'',`R × S × T × 86400 = ${fmtEvt(R)} × ${S} B × ${T}d × 86400 = ${fmtTB(rawR)}`)+
+    rr('Compressed on disk',fmtTB(compR),'',`Raw / CR = ${fmtTB(rawR)} / ${CR} = ${fmtTB(compR)}`)+
+    rr('With replication (RF='+RF+')',fmtTB(totRF),'',`Compressed × RF = ${fmtTB(compR)} × ${RF} = ${fmtTB(totRF)}`)+
+    rr('With headroom (×1.35)',fmtTB(totH),'highlight',`With RF × 1.35 = ${fmtTB(totRF)} × 1.35 = ${fmtTB(totH)} — accounts for segment overhead, compaction, index files`)+
+    (tiered?rr('Hot tier (local)',fmtTB(hotT),'',`R × S × ${hotH}h × 3600 × RF / CR × 1.35 = ${fmtTB(hotT)}`):'') +
+    (tiered?rr('Cold tier (object)',fmtTB(coldT),'',`Total − Hot = ${fmtTB(totH)} − ${fmtTB(hotT)} = ${fmtTB(coldT)}`):'') +
+    (tiered?rr('Local disk savings',diskSav.toFixed(0)+'%','highlight',`(1 − Hot/Total) × 100 = (1 − ${fmtTB(hotT)}/${fmtTB(totH)}) × 100 = ${diskSav.toFixed(0)}%`):'');
+
+  // Brokers
+  const localDisk=tiered?hotT:totH;
+  const bNet=Math.ceil(totalIO/(NIC*util));
+  const bDisk=Math.ceil(replW/(maxDW*util));
+  const bStor=Math.ceil(localDisk/(maxStor*util));
+  const bRF=RF;
+  const cs=[
+    {n:'Network',v:bNet,tip:`⌈ totalIO / (NIC × util) ⌉ = ⌈ ${fmtMBs(totalIO)} / (${fmtNum(NIC)} MB/s × ${(util*100).toFixed(0)}%) ⌉ = ${bNet}`},
+    {n:'Disk Write'+(jbod>1?' ('+jbod+'× JBOD)':''),v:bDisk,tip:`⌈ replWrite / (diskWrite × util) ⌉ = ⌈ ${fmtMBs(replW)} / (${maxDW} MB/s × ${(util*100).toFixed(0)}%) ⌉ = ${bDisk}`},
+    {n:'Storage',v:bStor,tip:`⌈ localDisk / (maxStor × util) ⌉ = ⌈ ${fmtTB(localDisk)} / (${maxStor} TB × ${(util*100).toFixed(0)}%) ⌉ = ${bStor}`},
+    {n:'Min RF',v:bRF,tip:`Minimum ${RF} brokers required for RF=${RF}`}
+  ];
+  const brokers=Math.max(bNet,bDisk,bStor,bRF);
+  const lim=cs.reduce((a,b)=>b.v>a.v?b:a).n;
+
+  document.getElementById('broker-constraints').innerHTML=
+    cs.map(c=>rr(c.n,c.v+' brokers'+(c.n===lim?' <span class="limiting-badge">limiting</span>':''),'',c.tip)).join('')+
+    '<div style="margin-top:16px;padding-top:16px;border-top:2px solid var(--border)">'+
+    rr('<strong>Recommended Brokers (single DC)</strong>','<strong>'+brokers+'</strong>','highlight',`max(${bNet}, ${bDisk}, ${bStor}, ${bRF}) = ${brokers}`)+'</div>';
+
+  const cpuB=inPeak<50?8:inPeak<500?16:inPeak<5000?24:inPeak<50000?32:48;
+  const ramB=inPeak<50?32:inPeak<500?64:128;
+  const heap=ramB<=32?6:ramB<=64?8:ramB<=128?12:16;
+  const diskB=brokers>0?localDisk/brokers:0;
+  const dType=jbod>1?jbod+'× NVMe JBOD':(inPeak<10?'SSD':inPeak<500?'NVMe':'NVMe JBOD');
+  const nicR=inPeak<250?'10 Gbps':inPeak<2500?'25 Gbps':'2×25 Gbps';
+
+  document.getElementById('broker-hardware').innerHTML=
+    rr('CPU',cpuB+' cores','',`Based on peak ingress tier: ${fmtMBs(inPeak)} → ${cpuB} cores. Accounts for compression, SSL/TLS overhead.`)+
+    rr('RAM',ramB+' GB','',`${heap} GB JVM heap + ${ramB-heap} GB OS page cache. Page cache is critical for consumer read perf.`)+
+    rr('JVM Heap (max)',heap+' GB','',`Scaled to cluster size. Never exceed 16 GB — GC pauses degrade latency above that.`)+
+    rr('Disk / broker',diskB.toFixed(1)+' TB','',`localDisk / brokers = ${fmtTB(localDisk)} / ${brokers} = ${diskB.toFixed(1)} TB`)+
+    rr('Disk layout',dType,'',jbod>1?`${jbod} disks × ${dwSingle} MB/s = ${maxDW} MB/s aggregate write. JBOD configured via log.dirs.`:`Single disk at ${dwSingle} MB/s`)+
+    rr('Network',nicR,'',`Recommended based on peak ingress ${fmtMBs(inPeak)}. Each message generates RF−1 replication reads + C consumer reads.`);
+
+  const ctrlN=brokers<50?3:5;
+  const ctrlCpu=brokers<20?4:brokers<50?8:16;
+  const ctrlRam=brokers<20?8:brokers<50?16:64;
+  const ctrlDisk=brokers<50?'100 GB SSD':'500 GB NVMe';
+
+  document.getElementById('kraft-sizing').innerHTML=
+    rr('Controller count',ctrlN+' nodes','',`${brokers} brokers → ${ctrlN} controllers. ${ctrlN===3?'3-node quorum tolerates 1 failure.':'5-node quorum tolerates 2 failures. Recommended for ≥50 brokers.'}`)+
+    rr('CPU / controller',ctrlCpu+' cores','',`Scaled to ${brokers} brokers. Handles metadata log replication.`)+
+    rr('RAM / controller',ctrlRam+' GB','',`Must hold metadata for all partitions in memory.`)+
+    rr('Disk / controller',ctrlDisk,'',`Stores metadata log. NVMe recommended for ≥50 brokers.`);
+
+  // ── Topology ──
+  const stretchTotal=brokers;
+  const stretchPerDC=DC>1?Math.ceil(brokers/DC):brokers;
+  const stretchCtrl=DC>1?(ctrlN%2===0?ctrlN+1:ctrlN):ctrlN;
+  const stretchCtrlPerDC=DC>1?Math.ceil(stretchCtrl/DC):ctrlN;
+
+  // Stretch diagram
+  let sd='';
+  for(let i=0;i<(DC>1?DC:1);i++){
+    if(i>0) sd+=`<div class="arrow-col"><div class="arrow-lbl" style="color:var(--stretch-color)">Sync repl<br>built into RF</div><div class="arrow-ico">⟷</div><div style="font-size:.65rem;color:var(--text-muted)">${dcLat}ms RTT</div></div>`;
+    const bk=i<DC-1?stretchPerDC:Math.max(1,stretchTotal-stretchPerDC*(DC-1));
+    const ck=i<DC-1?stretchCtrlPerDC:Math.max(1,stretchCtrl-stretchCtrlPerDC*(DC-1));
+    const replPerPart=RF>DC?Math.ceil(RF/DC):1;
+    sd+=`<div class="dc-box stretch-dc"><h4>DC-${i+1}</h4>
+      <div class="dc-comp"><span>Kafka Brokers</span><span class="dc-cnt">${bk}</span></div>
+      <div class="dc-comp"><span>KRaft Controllers</span><span class="dc-cnt">${ck}</span></div>
+      <p style="margin-top:8px">~${replPerPart} replica(s) per partition<br><code style="font-size:.68rem">broker.rack=DC-${i+1}</code></p></div>`;
+  }
+  document.getElementById('stretch-diagram').innerHTML=sd;
+
+  document.getElementById('stretch-sizing').innerHTML=
+    rr('Total brokers (all DCs)',stretchTotal,'stretch-val',`Same as single-DC broker count: ${brokers}. RF distributes replicas across DCs via broker.rack.`)+
+    (DC>1?rr('Brokers per DC','~'+stretchPerDC,'stretch-val',`⌈ ${stretchTotal} / ${DC} DCs ⌉ = ${stretchPerDC} brokers per DC`):'')+
+    rr('KRaft controllers (total)',stretchCtrl,'',`${ctrlN} base (for ${brokers} brokers), adjusted to odd number across ${DC} DCs = ${stretchCtrl}. Split ~${stretchCtrlPerDC} per DC.`)+
+    rr('Produce latency overhead',DC>1?'+'+dcLat+'ms (cross-DC RTT on acks=all)':'N/A','',DC>1?`Every produce waits for min.isr=${isr} replicas across DCs. Tunable via linger.ms and batch.size to amortize overhead.`:'')+
+    rr('Data consistency','Strong — single cluster, no divergence','highlight','All consumers see identical data in every DC. No conflict resolution needed.')+
+    rr('RPO','0 (zero data loss)','highlight','All writes are synchronous across DCs before ACK to producer.')+
+    rr('Inter-DC network',DC>1?fmtMBs(replW/DC)+' (replication traffic)':'N/A','',DC>1?`Replication write / DCs = ${fmtMBs(replW)} / ${DC} = ${fmtMBs(replW/DC)}. Built into RF — no separate fleet.`:'')+
+    (DC>1&&dcLat>30?'<div class="info-box warn" style="margin-top:12px"><strong>Note:</strong> At '+dcLat+'ms RTT, consider tuning linger.ms and batch.size to amortize cross-DC overhead. Throughput is maintained but per-message latency increases.</div>':'');
+
+  // Multi-cluster
+  const multiBPerDC=brokers, multiBTotal=brokers*DC;
+  const mm2=DC>1?Math.max(1,Math.ceil(xdc/150)):0;
+  const mm2Cpu=xdc<500?4:8, mm2Ram=xdc<500?16:32;
+  const dcGbps=DC>1?Math.ceil(xdcBw*8/1000):0;
+
+  let md='';
+  for(let i=0;i<(DC>1?DC:1);i++){
+    if(i>0) md+=`<div class="arrow-col"><div class="arrow-lbl" style="color:var(--multi-color)">Async repl<br>MM2 / CL</div><div class="arrow-ico">⟶</div><div style="font-size:.65rem;color:var(--text-muted)">${fmtMBs(xdc)}</div></div>`;
+    md+=`<div class="dc-box multi-dc"><h4>Cluster DC-${i+1}</h4>
+      <div class="dc-comp"><span>Kafka Brokers</span><span class="dc-cnt">${multiBPerDC}</span></div>
+      <div class="dc-comp"><span>KRaft Controllers</span><span class="dc-cnt">${ctrlN}</span></div>
+      ${mm2>0?`<div class="dc-comp"><span>MM2 Workers</span><span class="dc-cnt">${mm2}</span></div>`:''}
+      <p style="margin-top:8px">Independent cluster, RF=${RF} internal<br>Sized for 100% failover capacity</p></div>`;
+  }
+  document.getElementById('multi-diagram').innerHTML=md;
+
+  document.getElementById('multi-sizing').innerHTML=
+    rr('Brokers per DC',multiBPerDC,'multi-val',`Each DC must handle 100% of total load for failover. Same as single-DC count: ${brokers}.`)+
+    rr('Total brokers (all DCs)',multiBTotal,'multi-val',`${multiBPerDC} × ${DC} DCs = ${multiBTotal}`)+
+    rr('KRaft controllers per DC',ctrlN,'',`Independent ${ctrlN}-node quorum per cluster.`)+
+    rr('MirrorMaker 2 instances / DC',mm2,'',DC>1?`⌈ cross-DC throughput / 150 MB/s ⌉ = ⌈ ${fmtMBs(xdc)} / 150 ⌉ = ${mm2} workers`:'N/A for single DC')+
+    (mm2>0?rr('MM2 spec / instance',mm2Cpu+' CPU / '+mm2Ram+' GB RAM','',`Scaled to ${fmtMBs(xdc)} replication throughput. ${mm2Cpu} CPU for ${xdc<500?'moderate':'high'} throughput.`):'')+
+    rr('Cross-DC link',DC>1?dcGbps+' Gbps':'N/A',DC>1?'warn':'',DC>1?`2 × xdcRepl × 8 / 1000 = 2 × ${fmtMBs(xdc)} = ${fmtMBs(xdcBw)} ≈ ${dcGbps} Gbps`:'')+
+    rr('Data consistency',DC>1?'Eventual — async replication may diverge':'N/A','warn','Active-active: non-deterministic ordering, possible data conflicts. May require application-level reconciliation.')+
+    rr('RPO',DC>1?'> 0 (replication lag)':'N/A','','Data in transit during DC failure is lost. Lag depends on MM2 throughput and network.')+
+    rr('Produce latency','Local only — no cross-DC penalty','highlight','Writes are acknowledged by local ISR only. No inter-DC RTT on produce path.');
+
+  // Comparison
+  if(DC>1){
+    document.getElementById('dc-comparison-card').style.display='block';
+    document.getElementById('dc-comparison-table').innerHTML=`
+      <thead><tr><th></th><th class="stretch-hdr">🔗 Stretch Cluster</th><th class="multi-hdr">🏢 Multiple Clusters</th></tr></thead>
+      <tbody>
+        <tr><td>Architecture</td><td class="stretch-td">Single logical cluster across ${DC} DCs</td><td class="multi-td">${DC} independent clusters</td></tr>
+        <tr><td>Replication</td><td class="stretch-td">Synchronous (built into RF=${RF})</td><td class="multi-td">Asynchronous (MM2 / Cluster Linking)</td></tr>
+        <tr><td>Data consistency</td><td class="stretch-td">Strong — single source of truth, no divergence</td><td class="multi-td">Eventual — may diverge, conflicts possible</td></tr>
+        <tr><td>RPO</td><td class="stretch-td">0 (zero data loss)</td><td class="multi-td">> 0 (replication lag window)</td></tr>
+        <tr><td>Produce latency</td><td class="stretch-td">+${dcLat}ms (cross-DC RTT)</td><td class="multi-td">Local only (no penalty)</td></tr>
+        <tr><td>Total brokers</td><td class="stretch-td">${stretchTotal}</td><td class="multi-td">${multiBTotal}</td></tr>
+        <tr><td>Total controllers</td><td class="stretch-td">${stretchCtrl} (shared quorum)</td><td class="multi-td">${ctrlN*DC} (${ctrlN}/DC)</td></tr>
+        <tr><td>Replication fleet</td><td class="stretch-td">None (built into RF)</td><td class="multi-td">${mm2} MM2 workers per DC</td></tr>
+        <tr><td>Cross-DC bandwidth</td><td class="stretch-td">${fmtMBs(replW/DC)} (RF traffic)</td><td class="multi-td">${fmtMBs(xdcBw)} per remote DC</td></tr>
+        <tr><td>Ordering</td><td class="stretch-td">Global per-partition (single cluster)</td><td class="multi-td">Per-origin only in active-active</td></tr>
+        <tr><td>Failover</td><td class="stretch-td">Automatic (leader election)</td><td class="multi-td">Orchestrated client failover</td></tr>
+        <tr><td>Best for</td><td class="stretch-td">Consistency-critical, RPO=0, co-located DCs</td><td class="multi-td">Latency-sensitive produces, geo-distributed DCs</td></tr>
+      </tbody>`;
+  }else{document.getElementById('dc-comparison-card').style.display='none';}
+
+  // Partitions
+  const pt=30,minP=Math.max(1,Math.ceil(inPeak/pt)),recP=Math.max(6,minP);
+  const maxPB=4000,maxC=brokers*maxPB;
+  document.getElementById('partition-details').innerHTML=
+    rr('Peak ingress',fmtMBs(inPeak),'',`R × S × P = ${fmtEvt(R)} × ${S} B × ${P} = ${fmtMBs(inPeak)}`)+
+    rr('Target / partition',pt+' MB/s','','Practical ceiling for a single partition with sequential I/O')+
+    rr('Min partitions (throughput)',minP,'',`⌈ peak / target ⌉ = ⌈ ${fmtMBs(inPeak)} / ${pt} MB/s ⌉ = ${minP}`)+
+    rr('Recommended / high-throughput topic',recP,'highlight',`max(6, ${minP}) = ${recP}. At least 6 for consumer parallelism.`)+
+    rr('Max per broker',fmtNum(maxPB),'','Keep below ~4,000 per broker for low latency. More partitions = more file handles, memory, rebalancing time.')+
+    rr('Max cluster-wide',fmtNum(maxC),'',`${brokers} brokers × ${fmtNum(maxPB)} = ${fmtNum(maxC)}`)+
+    rr('KRaft limit','~2M','','KRaft handles up to ~2M partitions cluster-wide, vs ~200K with ZooKeeper.');
+
+  // Summary
+  const isM=topology==='multi';
+  const sBDC=isM?multiBPerDC:(DC>1?stretchPerDC:brokers);
+  const sBT=isM?multiBTotal:stretchTotal;
+  const sCtrl=isM?ctrlN:(DC>1?stretchCtrl:ctrlN);
+  const sMM=isM?mm2:0;
+  const cpuDC=sBDC*cpuB+(isM?ctrlN:Math.ceil(sCtrl/Math.max(DC,1)))*ctrlCpu+sMM*mm2Cpu;
+  const ramDC=sBDC*ramB+(isM?ctrlN:Math.ceil(sCtrl/Math.max(DC,1)))*ctrlRam+sMM*mm2Ram;
+  const tl=DC>1?(isM?'<span class="topo-context multi">Multiple Clusters</span>':'<span class="topo-context stretch">Stretch Cluster</span>'):'Single DC';
+
+  document.getElementById('summary-headline').innerHTML=
+    mc(fmtNum(sBT),'Total Brokers',DC>1?'across '+DC+' DCs':'single DC',isM?'multi':(DC>1?'stretch':'blue'))+
+    mc(fmtNum(cpuDC)+' <span class="result-unit">cores</span>','CPU per DC','','orange')+
+    mc(fmtTB(localDisk),'Local Disk / DC',tiered?'+ '+fmtTB(coldT)+' object':'','purple');
+
+  document.getElementById('summary-topo-label').innerHTML=tl;
+  document.getElementById('summary-details').innerHTML=
+    '<div style="margin-bottom:8px;font-size:.78rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;font-weight:700">Per Datacenter</div>'+
+    rr('Kafka Brokers',sBDC,'',`${cpuB} CPU / ${ramB} GB RAM / ${diskB.toFixed(1)} TB ${dType} / ${nicR} each`)+
+    rr('KRaft Controllers',(isM?ctrlN:Math.ceil(sCtrl/Math.max(DC,1))),'',`${ctrlCpu} CPU / ${ctrlRam} GB RAM / ${ctrlDisk} each`)+
+    (sMM>0?rr('MirrorMaker 2',sMM+' instances','',`${mm2Cpu} CPU / ${mm2Ram} GB RAM each. Handles ${fmtMBs(xdc)} cross-DC replication.`):'')+
+    rr('Total CPU / DC',fmtNum(cpuDC)+' cores','highlight',`(${sBDC} brokers × ${cpuB}) + (${isM?ctrlN:Math.ceil(sCtrl/Math.max(DC,1))} ctrl × ${ctrlCpu})${sMM>0?' + ('+sMM+' MM2 × '+mm2Cpu+')':''} = ${fmtNum(cpuDC)}`)+
+    rr('Total RAM / DC',fmtNum(ramDC)+' GB','highlight',`(${sBDC} × ${ramB}) + (${isM?ctrlN:Math.ceil(sCtrl/Math.max(DC,1))} × ${ctrlRam})${sMM>0?' + ('+sMM+' × '+mm2Ram+')':''} = ${fmtNum(ramDC)} GB`)+
+    rr('Local disk / DC',fmtTB(localDisk),'highlight',tiered?`Hot tier only: ${hotH}h of data with RF=${RF}`:`Full ${T}d retention with RF=${RF}`)+
+    (tiered?rr('Object storage / DC',fmtTB(coldT),'',`Cold tier: total ${fmtTB(totH)} − hot ${fmtTB(hotT)} = ${fmtTB(coldT)}`):'')+
+    '<div style="margin-top:16px;padding-top:16px;border-top:2px solid var(--border)">'+
+    '<div style="margin-bottom:8px;font-size:.78rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;font-weight:700">All Datacenters</div>'+
+    rr('Total brokers',fmtNum(sBT),'highlight',DC>1?`${sBDC} per DC × ${DC} DCs = ${sBT}`:`${sBT} (single DC)`)+
+    rr('Total CPU',fmtNum(cpuDC*DC)+' cores','',`${fmtNum(cpuDC)} per DC × ${DC} = ${fmtNum(cpuDC*DC)}`)+
+    rr('Total RAM',fmtNum(ramDC*DC)+' GB','',`${fmtNum(ramDC)} GB per DC × ${DC} = ${fmtNum(ramDC*DC)} GB`)+
+    rr('Total local disk',fmtTB(localDisk*DC),'',`${fmtTB(localDisk)} per DC × ${DC} = ${fmtTB(localDisk*DC)}`)+
+    (DC>1&&isM?rr('Inter-DC bandwidth',dcGbps+' Gbps / link','',`${fmtMBs(xdcBw)} ≈ ${dcGbps} Gbps per inter-DC link`):'')+'</div>';
+
+  renderMon();
+  renderScenarios();
+}
+
+// ═══ SCENARIOS ═══
+const scenarioDefaults = [
+  {label:'Scenario A',rate:10000,size:1024,peak:3,rf:3,ret:7,cr:4,cg:3,dcs:1,util:50,diskW:500,jbod:1,nic:1250,maxStor:15},
+  {label:'Scenario B',rate:100000,size:1024,peak:3,rf:3,ret:7,cr:4,cg:3,dcs:1,util:50,diskW:500,jbod:1,nic:3125,maxStor:15},
+  {label:'Scenario C',rate:1000000,size:1024,peak:3,rf:3,ret:7,cr:4,cg:5,dcs:2,util:50,diskW:500,jbod:4,nic:3125,maxStor:15},
+  {label:'Scenario D',rate:10000000,size:1024,peak:3,rf:3,ret:7,cr:4,cg:5,dcs:2,util:50,diskW:500,jbod:12,nic:3125,maxStor:15},
+];
+let scenarioState = JSON.parse(JSON.stringify(scenarioDefaults));
+
+function scenarioCalc(s){
+  const R=s.rate,S=s.size,P=s.peak,RF=Math.max(1,s.rf),T=s.ret,CR=Math.max(1,s.cr),C=s.cg;
+  const DC=Math.max(1,s.dcs),util=Math.max(10,s.util)/100;
+  const dwSingle=s.diskW,jbod=Math.max(1,s.jbod),maxDW=dwSingle*jbod;
+  const NIC=s.nic,maxStor=s.maxStor;
+  const MB=1048576,TB=1099511627776;
+  const inSteady=R*S/MB, inPeak=inSteady*P;
+  const replW=inPeak*RF, totalIO=inPeak*(RF+C);
+  const rawTB=R*S*T*86400/TB, compTB=rawTB/CR, totRF_TB=compTB*RF, totH=totRF_TB*1.35;
+  const bNet=Math.ceil(totalIO/(NIC*util));
+  const bDisk=Math.ceil(replW/(maxDW*util));
+  const bStor=Math.ceil(totH/(maxStor*util));
+  const brokers=Math.max(bNet,bDisk,bStor,RF);
+  const lim=bNet>=bDisk&&bNet>=bStor&&bNet>=RF?'Network':bDisk>=bStor&&bDisk>=RF?'Disk Write':bStor>=RF?'Storage':'RF';
+  const ctrlN=brokers<50?3:5;
+  const ctrlCpu=brokers<20?4:brokers<50?8:16;
+  const ctrlRam=brokers<20?8:brokers<50?16:64;
+  const cpuB=inPeak<50?8:inPeak<500?16:inPeak<5000?24:inPeak<50000?32:48;
+  const ramB=inPeak<50?32:inPeak<500?64:128;
+  const xdc=DC>1?inPeak/CR:0;
+  const mm2=DC>1?Math.max(1,Math.ceil(xdc/150)):0;
+  const mm2Cpu=xdc<500?4:8, mm2Ram=xdc<500?16:32;
+  const cpuDC=brokers*cpuB+ctrlN*ctrlCpu+mm2*mm2Cpu;
+  const ramDC=brokers*ramB+ctrlN*ctrlRam+mm2*mm2Ram;
+  const dcGbps=DC>1?Math.ceil(xdc*2*8/1000):0;
+  const diskB=brokers>0?totH/brokers:0;
+  return {inSteady,inPeak,totalIO,totH,bNet,bDisk,bStor,brokers,lim,ctrlN,mm2,cpuB,ramB,cpuDC,ramDC,dcGbps,diskB,DC,jbod};
+}
+
+function renderScenarios(){
+  const t=document.getElementById('scenario-table');
+  const labels=['Scenario A','Scenario B','Scenario C','Scenario D'];
+  const inputs=[
+    {key:'rate',label:'Event Rate',unit:'events/sec'},
+    {key:'size',label:'Event Size',unit:'bytes'},
+    {key:'peak',label:'Peak Multiplier',unit:'×'},
+    {key:'rf',label:'Replication Factor',unit:''},
+    {key:'ret',label:'Retention',unit:'days'},
+    {key:'cr',label:'Compression Ratio',unit:':1'},
+    {key:'cg',label:'Consumer Groups',unit:''},
+    {key:'dcs',label:'Datacenters',unit:''},
+    {key:'util',label:'Target Utilization',unit:'%'},
+    {key:'diskW',label:'Disk Write / Broker',unit:'MB/s'},
+    {key:'jbod',label:'JBOD Disks / Broker',unit:'disks'},
+    {key:'nic',label:'NIC Bandwidth / Broker',unit:'MB/s'},
+    {key:'maxStor',label:'Max Storage / Broker',unit:'TB'},
+  ];
+  const calcs=scenarioState.map(scenarioCalc);
+  let h=`<thead><tr><th style="width:220px">Parameter</th>`;
+  labels.forEach(l=>{h+=`<th class="scn-hdr">${l}</th>`;});
+  h+=`</tr></thead><tbody>`;
+  h+=`<tr class="scn-section"><td colspan="5">📝 Inputs (editable)</td></tr>`;
+  inputs.forEach(inp=>{
+    h+=`<tr><td>${inp.label} <span style="font-size:.7rem;color:var(--text-muted)">${inp.unit}</span></td>`;
+    for(let i=0;i<4;i++){
+      const val=scenarioState[i][inp.key];
+      h+=`<td><input class="scn-input" type="number" value="${val}" data-idx="${i}" data-key="${inp.key}" onchange="updateScenario(this)" oninput="updateScenario(this)"></td>`;
+    }
+    h+=`</tr>`;
+  });
+  h+=`<tr class="scn-section"><td colspan="5">📊 Calculated Results</td></tr>`;
+  const rows=[
+    {label:'Ingress steady',fn:c=>fmtMBs(c.inSteady)},
+    {label:'Ingress peak',fn:c=>fmtMBs(c.inPeak)},
+    {label:'Total broker I/O peak',fn:c=>fmtMBs(c.totalIO)},
+    {label:'Total storage (RF + headroom)',fn:c=>fmtTB(c.totH)},
+    {label:'Brokers — network-bound',fn:c=>c.bNet+''},
+    {label:'Brokers — disk write-bound',fn:c=>c.bDisk+(c.jbod>1?' <span style="font-size:.65rem;color:var(--text-muted)">('+c.jbod+'× JBOD)</span>':'')},
+    {label:'Brokers — storage-bound',fn:c=>c.bStor+''},
+  ];
+  rows.forEach(r=>{
+    h+=`<tr><td>${r.label}</td>`;
+    calcs.forEach(c=>{h+=`<td class="scn-calc">${r.fn(c)}</td>`;});
+    h+=`</tr>`;
+  });
+  const hlRows=[
+    {label:'★ Recommended Brokers / DC',cls:'scn-highlight',fn:c=>c.brokers},
+    {label:'Limiting Constraint',cls:'scn-result',fn:c=>`<span class="limiting-badge">${c.lim}</span>`},
+    {label:'Disk / Broker',cls:'',fn:c=>c.diskB.toFixed(1)+' TB'},
+    {label:'KRaft Controllers / DC',cls:'',fn:c=>c.ctrlN+''},
+    {label:'MM2 Instances / DC',cls:'',fn:c=>c.mm2+''},
+  ];
+  hlRows.forEach(r=>{
+    h+=`<tr class="${r.cls}"><td>${r.label}</td>`;
+    calcs.forEach(c=>{h+=`<td${!r.cls?' class="scn-calc"':''}>${r.fn(c)}</td>`;});
+    h+=`</tr>`;
+  });
+  h+=`<tr class="scn-section"><td colspan="5">🏗️ Infrastructure per DC</td></tr>`;
+  const totRows=[
+    {label:'CPU / Broker',fn:c=>c.cpuB+' cores',hl:false},
+    {label:'RAM / Broker',fn:c=>c.ramB+' GB',hl:false},
+    {label:'Total CPU / DC',fn:c=>fmtNum(c.cpuDC)+' cores',hl:true},
+    {label:'Total RAM / DC',fn:c=>fmtNum(c.ramDC)+' GB',hl:true},
+    {label:'Cross-DC Link',fn:c=>c.DC>1?c.dcGbps+' Gbps':'—',hl:false},
+    {label:'Total Brokers (all DCs)',fn:c=>fmtNum(c.brokers*c.DC),hl:true},
+    {label:'Total CPU (all DCs)',fn:c=>fmtNum(c.cpuDC*c.DC)+' cores',hl:true},
+    {label:'Total RAM (all DCs)',fn:c=>fmtNum(c.ramDC*c.DC)+' GB',hl:true},
+  ];
+  totRows.forEach(r=>{
+    h+=`<tr class="${r.hl?'scn-result':''}"><td>${r.label}</td>`;
+    calcs.forEach(c=>{h+=`<td class="scn-calc">${r.fn(c)}</td>`;});
+    h+=`</tr>`;
+  });
+  h+=`</tbody>`;
+  t.innerHTML=h;
+}
+
+function updateScenario(el){
+  const idx=parseInt(el.dataset.idx);
+  const key=el.dataset.key;
+  scenarioState[idx][key]=parseFloat(el.value)||0;
+  renderScenarios();
+  const inp=document.getElementById('scenario-table').querySelector(`input[data-idx="${idx}"][data-key="${key}"]`);
+  if(inp){inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length);}
+}
+
+function renderMon(){
+  const m=[
+    ['UnderReplicatedPartitions','Replication lag','> 0 for 5 min','> 0 for 15 min','Check disk, network, broker health'],
+    ['IsrShrinksPerSec','Followers leaving ISR','> 0 sustained','Frequent spikes','Slow broker? disk latency?'],
+    ['RequestHandlerAvgIdlePercent','Request thread saturation','< 30%','< 15%','Add brokers / num.io.threads'],
+    ['NetworkProcessorAvgIdlePercent','Network thread saturation','< 30%','< 15%','Add brokers / num.network.threads'],
+    ['ProduceTotalTimeMs (p99)','Producer latency','> 100 ms','> 500 ms','Disk, replication, acks'],
+    ['FetchConsumerTotalTimeMs (p99)','Consumer latency','> 200 ms','> 1000 ms','Page cache miss? lag?'],
+    ['LogFlushRateAndTimeMs (p99)','Disk write perf','> 50 ms','> 200 ms','Disk saturated — NVMe / JBOD'],
+    ['RequestQueueSize','Backpressure','> 10 avg','> 50 avg','Scale out'],
+    ['CPU utilization','Compute headroom','> 60%','> 80%','Add brokers'],
+    ['Disk utilization (%)','Storage headroom','> 60%','> 75%','Tiered storage / add disks'],
+    ['NIC throughput (% cap)','Network headroom','> 50%','> 70%','Add brokers / upgrade NIC'],
+    ['ActiveControllerCount','Controller health','0 any node','0 cluster','KRaft quorum check'],
+    ['OfflinePartitionsCount','Availability','> 0','> 0 for 5 min','Immediate investigation'],
+  ];
+  document.getElementById('monitoring-body').innerHTML=m.map(x=>`<tr><td><span class="mon-metric">${x[0]}</span></td><td>${x[1]}</td><td class="mon-warn">${x[2]}</td><td class="mon-crit">${x[3]}</td><td>${x[4]}</td></tr>`).join('');
+}
+
+recalc();
+</script>
+</body>
+</html>
