@@ -2,7 +2,7 @@
 
 A comprehensive, browser-based calculator for sizing Apache Kafka clusters. Derives broker count, hardware specs, storage requirements, partition guidelines, and cross-datacenter infrastructure from your workload parameters.
 
-**[Live Calculator](https://YOUR_USERNAME.github.io/kafka-sizing-calculator/)** _(update this link after enabling GitHub Pages)_
+**[Live Calculator](https://syalioune.github.io/kafka-sizing-calculator/)**
 
 ![Apache Kafka](https://img.shields.io/badge/Apache%20Kafka-4.x+-231F20?logo=apachekafka&logoColor=white)
 ![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)
