@@ -13,8 +13,10 @@ A comprehensive, browser-based calculator for sizing Apache Kafka clusters. Deri
 - **Zero dependencies** — single self-contained HTML file, no build step, no server required
 - **KRaft-native** — all sizing assumes KRaft mode (no ZooKeeper)
 - **Tiered Storage** aware — models hot/cold tier split with KIP-405
-- **Multi-DC topology** — compares stretch clusters vs. multiple independent clusters with MirrorMaker 2
+- **Multi-DC topology** — compares stretch clusters vs. multiple independent clusters with MirrorMaker 2, with custom DC names and full mesh connectivity diagrams
+- **Schema Registry & REST Proxy sizing** — optional component sizing with full integration into infrastructure totals
 - **Side-by-side scenario comparison** — 4 fully independent editable workload profiles
+- **Topology export** — export architecture diagrams as PNG or SVG images
 - **Live recalculation** — every input change instantly updates all derived metrics
 
 ## Calculator Sections
@@ -91,9 +93,32 @@ Determines broker count by finding the most constraining resource:
 
 Also provides per-broker hardware recommendations (CPU, RAM, JVM heap, disk layout, NIC) scaled to the ingress tier, and KRaft controller sizing (3 or 5 node quorum depending on cluster size).
 
-### Cluster Topology
+### Schema Registry
 
-Compares two multi-DC architectures when more than 1 datacenter is selected:
+Optional component sizing for Confluent Schema Registry:
+
+| Metric | Formula |
+|---|---|
+| JVM Heap / instance | `max(256 MB, schemas × 0.5 MB)` |
+| CPU / instance | `max(1, ceil(lookups / 10,000))` |
+| RAM / instance | `ceil(heap_MB / 1024) + 1 GB` |
+
+Configurable inputs: number of schemas, schema lookups/sec, and HA instance count. Totals are integrated into topology and summary tabs.
+
+### REST Proxy
+
+Optional component sizing for Confluent REST Proxy:
+
+| Metric | Formula |
+|---|---|
+| CPU / instance | `max(2, ceil(requests / (instances × 2,500)))` |
+| RAM / instance | `max(2, ceil(throughput_MB / 50) + 2) GB` |
+
+Configurable inputs: HTTP request rate, average payload size, and instance count. REST Proxy is **stateful for consumption** — consumer group instances are pinned to a specific proxy, requiring sticky sessions. Producing is stateless. Totals are integrated into topology and summary tabs.
+
+### Topology
+
+Compares two multi-DC architectures when more than 1 datacenter is selected. Supports custom DC names and displays full mesh connectivity (including DC-1 to DC-3 links for 3-DC setups). Architecture diagrams with storage visualization (hot/cold tier bars) can be exported as PNG or SVG.
 
 **Stretch Cluster:**
 - Single logical Kafka cluster spanning DCs via `broker.rack`
@@ -110,7 +135,7 @@ Compares two multi-DC architectures when more than 1 datacenter is selected:
 - Total brokers = single-DC count × number of DCs
 - Computes MirrorMaker 2 fleet sizing (workers, CPU, RAM) and cross-DC link bandwidth
 
-Includes a side-by-side comparison table and architecture diagrams for both topologies.
+Both topology sections include total CPU/RAM per DC accounting for all components (brokers, controllers, MM2, Schema Registry, REST Proxy). Includes a side-by-side comparison table and architecture diagrams.
 
 ### Partitions
 
@@ -138,6 +163,7 @@ Reference table of key Kafka JMX/Prometheus metrics with warning and critical th
 
 Aggregated infrastructure view per datacenter and across all DCs:
 - Broker and controller counts with per-node specs
+- Schema Registry and REST Proxy instances (if enabled)
 - MirrorMaker 2 fleet (if multi-cluster topology)
 - Total CPU cores, RAM, local disk, and object storage
 - Cross-DC bandwidth requirements
@@ -159,7 +185,8 @@ Open `index.html` in any modern browser. No server, build step, or dependencies 
 
 - Pure HTML, CSS, and JavaScript — no frameworks, no dependencies
 - CSS custom properties for consistent theming
-- Google Fonts (DM Sans, JetBrains Mono, Fraunces) loaded from CDN
+- Google Fonts (Open Sans, JetBrains Mono) loaded from CDN
+- Native SVG and Canvas 2D API for diagram export (no external libraries)
 - Responsive grid layout for desktop and mobile
 
 ## License

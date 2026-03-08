@@ -8,7 +8,7 @@ A single-file, zero-dependency Kafka cluster sizing calculator. The entire appli
 
 ## Architecture
 
-The app is a tabbed calculator with 8 tabs: Inputs, Throughput, Storage, Brokers, Cluster Topology, Partitions, Scenarios, Monitoring, and Summary.
+The app is a tabbed calculator with 10 tabs: Inputs, Throughput, Storage, Brokers, Cluster Topology, Partitions, Schema Registry, REST Proxy, Scenarios, Monitoring, and Summary.
 
 **Key structure within the single file:**
 - **Lines 1–188**: CSS (custom properties in `:root`, responsive grid, card/form/table component styles)
@@ -21,9 +21,9 @@ The app is a tabbed calculator with 8 tabs: Inputs, Throughput, Storage, Brokers
 - `renderScenarios()` / `renderMon()` — render the scenario comparison table and monitoring thresholds table
 - `setTopology(t)` — toggles between "stretch" and "multi" cluster topology views
 - `showTab(name, btn)` — tab switching, also triggers `recalc()`
-- Helper formatters: `fmtMBs()`, `fmtTB()`, `fmtNum()`, `fmtEvt()`, `rr()` (result row), `mc()` (metric card), `banner()` (input summary strip)
+- Helper formatters: `fmtMBs()`, `fmtTB()`, `fmtNum()`, `fmtEvt()`, `rr()` (result row), `mc()` (metric card), `banner()` (input summary strip), `storageBar()` (hot/cold storage visualization)
 
-**Calculation flow:** Input values → throughput (ingress, replication, consumer egress, total I/O) → storage (raw, compressed, with RF, hot/cold tiers) → broker count (max of network-bound, disk-bound, storage-bound, min RF) → topology (stretch vs multi-cluster sizing with DC distribution) → partitions → summary aggregation.
+**Calculation flow:** Input values → throughput (ingress, replication, consumer egress, total I/O) → storage (raw, compressed, with RF, hot/cold tiers) → broker count (max of network-bound, disk-bound, storage-bound, min RF) → topology (stretch vs multi-cluster sizing with DC distribution, storage visualization) → partitions → Schema Registry sizing → REST Proxy sizing → summary aggregation (including SR/RP in per-DC totals).
 
 ## Conventions
 

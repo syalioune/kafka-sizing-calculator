@@ -34,7 +34,7 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 .badge-topo { background:#ffedd6; color:#664213; border:1px solid #ffdbac; }
 
 .nav-tabs { display:flex; gap:2px; margin-bottom:32px; background:var(--bg-card); border-radius:var(--radius); padding:4px; border:1px solid var(--border); overflow-x:auto; box-shadow:var(--shadow); }
-.nav-tab { flex:1; min-width:105px; padding:10px 12px; background:transparent; border:none; color:var(--text-dim); font-family:var(--font-body); font-size:0.82rem; font-weight:600; cursor:pointer; border-radius:var(--radius-sm); transition:all 0.2s; white-space:nowrap; text-transform:uppercase; letter-spacing:0.02em; }
+.nav-tab { flex:none; padding:10px 14px; background:transparent; border:none; color:var(--text-dim); font-family:var(--font-body); font-size:0.82rem; font-weight:600; cursor:pointer; border-radius:var(--radius-sm); transition:all 0.2s; white-space:nowrap; text-transform:uppercase; letter-spacing:0.02em; }
 .nav-tab:hover { color:var(--text); background:var(--bg-hover); }
 .nav-tab.active { background:linear-gradient(180deg,#4a5568 0%,#2d3748 100%); color:#fff; box-shadow:0 1px 4px rgba(0,0,0,0.2); }
 
@@ -154,8 +154,8 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 .limiting-badge { display:inline-block; padding:2px 8px; border-radius:0.25rem; font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; background:#ffedd6; color:#664213; border:1px solid #ffdbac; }
 
 /* Architecture diagrams */
-.arch-diagram { display:flex; justify-content:center; gap:20px; padding:28px 20px; margin:16px 0; background:var(--bg-input); border-radius:var(--radius); border:1px solid var(--border); flex-wrap:wrap; align-items:stretch; }
-.dc-box { padding:18px; border-radius:var(--radius); min-width:230px; max-width:340px; flex:1; }
+.arch-diagram { display:flex; justify-content:center; gap:20px; padding:28px 20px; margin:16px 0; background:var(--bg-input); border-radius:var(--radius); border:1px solid var(--border); flex-wrap:nowrap; align-items:stretch; overflow-x:auto; }
+.dc-box { padding:18px; border-radius:var(--radius); min-width:220px; max-width:340px; flex:1 1 0; }
 .dc-box.stretch-dc { border:2px solid var(--stretch-border); background:var(--stretch-bg); }
 .dc-box.multi-dc { border:2px solid var(--multi-border); background:var(--multi-bg); }
 .dc-box h4 { font-size:.82rem; font-weight:700; margin-bottom:10px; text-transform:uppercase; letter-spacing:.04em; }
@@ -168,6 +168,28 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 .arrow-col { display:flex; align-items:center; justify-content:center; flex-direction:column; gap:4px; min-width:56px; }
 .arrow-col .arrow-lbl { font-size:.66rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; text-align:center; line-height:1.3; }
 .arrow-col .arrow-ico { font-size:1.5rem; color:var(--text-muted); }
+.cluster-wrap { border:2px dashed var(--stretch-color); border-radius:12px; padding:32px 16px 16px; position:relative; display:flex; align-items:stretch; justify-content:center; gap:20px; flex-wrap:nowrap; flex:1 1 100%; min-width:0; }
+.cluster-wrap-label { position:absolute; top:-10px; left:50%; transform:translateX(-50%); background:var(--bg-input); padding:0 12px; font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--stretch-color); white-space:nowrap; }
+.cluster-indep { border:2px dashed var(--multi-color); border-radius:10px; padding:28px 10px 10px; position:relative; flex:1 1 0; min-width:220px; max-width:340px; display:flex; }
+.cluster-indep-label { position:absolute; top:-9px; left:50%; transform:translateX(-50%); background:var(--bg-input); padding:0 10px; font-size:.65rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--multi-color); white-space:nowrap; }
+.cluster-indep .dc-box { min-width:0; max-width:none; flex:1; }
+.mesh-link { text-align:center; margin-top:-12px; margin-bottom:16px; position:relative; padding:0 15%; }
+.mesh-link-line { border:2px solid var(--border-accent); border-top:none; border-radius:0 0 12px 12px; height:24px; margin:0 auto; }
+.mesh-link-line.stretch-line { border-color:var(--stretch-border); }
+.mesh-link-line.multi-line { border-color:var(--multi-border); }
+.mesh-link-label { display:inline-block; padding:2px 12px; font-size:.66rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; line-height:1.3; border-radius:0.25rem; margin-top:2px; }
+.mesh-link-label.stretch-lbl { color:var(--stretch-color); background:var(--stretch-bg); }
+.mesh-link-label.multi-lbl { color:var(--multi-color); background:var(--multi-bg); }
+
+/* Storage bar visualization */
+.storage-bar { margin-top:10px; border-radius:4px; overflow:hidden; height:18px; display:flex; font-size:.6rem; font-weight:700; font-family:var(--font-mono); line-height:18px; }
+.storage-bar .bar-hot { background:#0d6efd; color:#fff; text-align:center; white-space:nowrap; overflow:hidden; min-width:20px; }
+.storage-bar .bar-cold { background:#6f42c1; color:#fff; text-align:center; white-space:nowrap; overflow:hidden; min-width:20px; }
+.storage-bar-label { font-size:.65rem; color:var(--text-muted); margin-top:3px; display:flex; justify-content:space-between; }
+.storage-bar-label span { display:inline-flex; align-items:center; gap:3px; }
+.storage-bar-label .dot { width:7px; height:7px; border-radius:2px; display:inline-block; }
+.storage-bar-label .dot-hot { background:#0d6efd; }
+.storage-bar-label .dot-cold { background:#6f42c1; }
 
 ::-webkit-scrollbar { width:8px; height:8px; } ::-webkit-scrollbar-track { background:var(--bg); } ::-webkit-scrollbar-thumb { background:var(--border); border-radius:4px; } ::-webkit-scrollbar-thumb:hover { background:var(--border-accent); }
 
@@ -185,6 +207,11 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 .scn-input { width:100%; max-width:120px; padding:6px 10px; background:#ffedd6; border:1px solid #ffdbac; border-radius:var(--radius-sm); color:var(--text); font-family:var(--font-mono); font-size:.88rem; font-weight:600; text-align:right; outline:none; transition:border-color .2s; }
 .scn-input:focus { border-color:var(--accent-blue); box-shadow:0 0 0 3px rgba(13,110,253,.15); }
 .scn-calc { font-family:var(--font-mono); font-weight:600; color:var(--text); font-size:.85rem; }
+
+.export-bar { display:flex; gap:8px; justify-content:flex-end; margin-bottom:4px; }
+.export-btn { display:inline-flex; align-items:center; gap:5px; padding:5px 14px; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--bg-card); color:var(--text-dim); font-family:var(--font-body); font-size:.72rem; font-weight:600; cursor:pointer; transition:all .2s; text-transform:uppercase; letter-spacing:.03em; }
+.export-btn:hover { background:var(--bg-hover); color:var(--text); border-color:var(--border-accent); }
+.export-btn svg { width:14px; height:14px; }
 </style>
 </head>
 <body>
@@ -201,7 +228,9 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
   <button class="nav-tab" onclick="showTab('throughput',this)">Throughput</button>
   <button class="nav-tab" onclick="showTab('storage',this)">Storage</button>
   <button class="nav-tab" onclick="showTab('brokers',this)">Brokers</button>
-  <button class="nav-tab" onclick="showTab('topology',this)">Cluster Topology</button>
+  <button class="nav-tab" onclick="showTab('schema-registry',this)">Schema Registry</button>
+  <button class="nav-tab" onclick="showTab('rest-proxy',this)">REST Proxy</button>
+  <button class="nav-tab" onclick="showTab('topology',this)">Topology</button>
   <button class="nav-tab" onclick="showTab('partitions',this)">Partitions</button>
   <button class="nav-tab" onclick="showTab('scenarios',this)">Scenarios</button>
   <button class="nav-tab" onclick="showTab('monitoring',this)">Monitoring</button>
@@ -291,20 +320,72 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
     <div class="ref-links"><a class="doc-link" href="https://kafka.apache.org/documentation/#kraft" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> KRaft</a> <a class="doc-link" href="https://cwiki.apache.org/confluence/display/KAFKA/KIP-500%3A+Replace+ZooKeeper+with+a+Self-Managed+Metadata+Quorum" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> KIP-500</a></div></div>
 </div>
 
-<!-- ═══ CLUSTER TOPOLOGY ═══ -->
+<!-- ═══ SCHEMA REGISTRY ═══ -->
+<div id="tab-schema-registry" class="tab-content"><div id="banner-schema-registry" class="input-banner"></div>
+  <div class="section-title">Schema Registry Sizing <span class="line"></span></div>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header"><div class="card-icon purple">📋</div><div><div class="card-title">Schema Registry Configuration</div><div class="card-subtitle">Confluent Schema Registry or compatible</div></div></div>
+      <div class="form-group"><label class="form-label">Enable Schema Registry <span class="tip" data-tip="Schema Registry stores and validates Avro, Protobuf, or JSON schemas. Required for schema evolution and compatibility enforcement.">?</span></label>
+        <select class="form-select" id="srEnabled" onchange="recalc()"><option value="0">Disabled</option><option value="1" selected>Enabled</option></select></div>
+      <div id="srConfigGroup">
+        <div class="form-group"><label class="form-label">Number of Schemas <span class="tip" data-tip="Total unique schema versions across all subjects. Typical: 50–500 for medium orgs, 1000+ for large platforms.">?</span></label><input type="number" class="form-input" id="srSchemas" value="200" oninput="recalc()"><div class="form-unit">unique schema versions</div></div>
+        <div class="form-group"><label class="form-label">Schema Lookups / sec <span class="tip" data-tip="Peak schema lookup rate. Each produce/consume with serialization triggers a lookup (usually cached). Estimate: event_rate × 0.01 for cached, or event_rate for uncached cold starts.">?</span></label><input type="number" class="form-input" id="srLookups" value="5000" oninput="recalc()"><div class="form-unit">requests / second (peak)</div></div>
+        <div class="form-group"><label class="form-label">High Availability <span class="tip" data-tip="Run multiple SR instances behind a load balancer. Leader handles writes, followers serve reads. Minimum 2 for HA.">?</span></label>
+          <select class="form-select" id="srHA" onchange="recalc()"><option value="1">Single instance</option><option value="2" selected>2 instances (HA)</option><option value="3">3 instances</option></select></div>
+      </div>
+      <div class="info-box info"><strong>Schema Registry</strong> stores schemas in a compacted Kafka topic (<code>_schemas</code>). Memory footprint is dominated by cached schemas. CPU is minimal unless doing heavy JSON/Protobuf parsing at high RPS.</div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-icon purple">⚙️</div><div><div class="card-title">Schema Registry Sizing Results</div></div></div>
+      <div id="sr-sizing"></div>
+      <div class="formula-block">Heap = max(256 MB, schemas × 0.5 MB) | CPU = max(1, ⌈lookups / 10000⌉)</div>
+      <div class="ref-links"><a class="doc-link" href="https://docs.confluent.io/platform/current/schema-registry/index.html" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> Schema Registry docs</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ REST PROXY ═══ -->
+<div id="tab-rest-proxy" class="tab-content"><div id="banner-rest-proxy" class="input-banner"></div>
+  <div class="section-title">REST Proxy Sizing <span class="line"></span></div>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header"><div class="card-icon orange">🌐</div><div><div class="card-title">REST Proxy Configuration</div><div class="card-subtitle">HTTP interface to Kafka</div></div></div>
+      <div class="form-group"><label class="form-label">Enable REST Proxy <span class="tip" data-tip="Kafka REST Proxy provides an HTTP/REST interface for producing and consuming messages. Used by non-JVM clients and legacy integrations.">?</span></label>
+        <select class="form-select" id="rpEnabled" onchange="recalc()"><option value="0">Disabled</option><option value="1" selected>Enabled</option></select></div>
+      <div id="rpConfigGroup">
+        <div class="form-group"><label class="form-label">HTTP Request Rate <span class="tip" data-tip="Peak HTTP requests/sec across all REST Proxy instances. Includes both produce and consume requests. Each HTTP request maps to one or more Kafka operations.">?</span></label><input type="number" class="form-input" id="rpRequests" value="10000" oninput="recalc()"><div class="form-unit">requests / second (peak)</div></div>
+        <div class="form-group"><label class="form-label">Avg Request Payload <span class="tip" data-tip="Average HTTP request body size. Produce requests carry the message payload. Consume responses carry fetched records.">?</span></label><input type="number" class="form-input" id="rpPayload" value="2048" oninput="recalc()"><div class="form-unit">bytes</div></div>
+        <div class="form-group"><label class="form-label">Instances <span class="tip" data-tip="Number of REST Proxy instances. Stateful for consumption — consumer group instances are pinned to a specific proxy, so consume requests must use sticky sessions. Each handles ~5000 req/s at moderate payload.">?</span></label><input type="number" class="form-input" id="rpInstances" value="2" min="1" oninput="recalc()"><div class="form-unit">instances (sticky sessions for consumers)</div></div>
+      </div>
+      <div class="info-box info"><strong>REST Proxy</strong> is <strong>stateful for consumption</strong> — a consumer group instance is created on one proxy and subsequent fetch requests for that consumer must be routed to the same instance (sticky sessions). Producing is stateless. CPU-bound due to JSON serialization/deserialization. Memory is needed for consumer state, connection pools, and request buffering.</div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-icon orange">⚙️</div><div><div class="card-title">REST Proxy Sizing Results</div></div></div>
+      <div id="rp-sizing"></div>
+      <div class="formula-block">CPU/inst = max(2, ⌈requests / (instances × 2500)⌉) | RAM/inst = max(2, ⌈throughput_MB / 50⌉) GB</div>
+      <div class="ref-links"><a class="doc-link" href="https://docs.confluent.io/platform/current/kafka-rest/index.html" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> REST Proxy docs</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ TOPOLOGY ═══ -->
 <div id="tab-topology" class="tab-content"><div id="banner-topology" class="input-banner"></div>
-  <div class="section-title">Cluster Topology <span class="line"></span></div>
+  <div class="section-title">Topology <span class="line"></span></div>
   <div class="topology-toggle">
     <button class="topo-btn active-stretch" id="btn-stretch" onclick="setTopology('stretch')"><div class="topo-label">🔗 Stretch Cluster</div><div class="topo-desc">Single logical cluster spanning DCs. Synchronous replication via RF distribution.</div></button>
     <button class="topo-btn" id="btn-multi" onclick="setTopology('multi')"><div class="topo-label">🏢 Multiple Clusters</div><div class="topo-desc">Independent cluster per DC. Asynchronous replication via MirrorMaker 2 / Cluster Linking.</div></button>
   </div>
-  <div class="form-row" style="max-width:500px;margin-bottom:24px">
+  <div class="form-row" style="max-width:500px;margin-bottom:12px">
     <div class="form-group"><label class="form-label">Datacenters</label><select class="form-select" id="dcCount" onchange="recalc()"><option value="1">1 (single DC)</option><option value="2" selected>2</option><option value="3">3</option></select></div>
     <div class="form-group" id="interDcLatencyGroup"><label class="form-label">Inter-DC RTT <span class="tip" data-tip="Round-trip time between DCs. In a stretch cluster, acks=all produces pay this latency. Many event-driven workloads tolerate it well.">?</span></label><input type="number" class="form-input" id="interDcLatency" value="5" oninput="recalc()"><div class="form-unit">ms round-trip</div></div>
   </div>
+  <div class="form-row" id="dcNamesGroup" style="max-width:700px;margin-bottom:24px"></div>
 
   <div id="stretch-content">
+    <div class="export-bar"><button class="export-btn" onclick="exportDiagram('stretch-diagram','svg')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> SVG</button><button class="export-btn" onclick="exportDiagram('stretch-diagram','png')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> PNG</button></div>
     <div class="arch-diagram" id="stretch-diagram"></div>
+    <div class="mesh-link" id="stretch-mesh" style="display:none"></div>
     <div class="info-box stretch-info">
       <strong>Stretch Cluster:</strong> A single Kafka cluster where <code>broker.rack</code> distributes replicas across DCs. Every produce with <code>acks=all</code> waits for cross-DC acknowledgment. This guarantees <strong>RPO=0</strong> (zero data loss) and <strong>strong data consistency</strong> — all consumers in every DC see the exact same data, with no divergence or conflict resolution needed.
       <br><br><strong>Latency tradeoff:</strong> produce latency increases by the inter-DC RTT. This is often acceptable for event-driven architectures, batch consumers, and workloads that prioritize correctness over low-latency produce. Tuning <code>linger.ms</code> and batch sizes can amortize the overhead.
@@ -314,7 +395,9 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
   </div>
 
   <div id="multi-content" style="display:none">
+    <div class="export-bar"><button class="export-btn" onclick="exportDiagram('multi-diagram','svg')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> SVG</button><button class="export-btn" onclick="exportDiagram('multi-diagram','png')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> PNG</button></div>
     <div class="arch-diagram" id="multi-diagram"></div>
+    <div class="mesh-link" id="multi-mesh" style="display:none"></div>
     <div class="info-box multi-info">
       <strong>Multiple Clusters:</strong> Each DC runs an independent Kafka cluster with its own RF internally. Data is replicated asynchronously via <strong>MirrorMaker 2</strong> or <strong>Confluent Cluster Linking</strong>. Produce latency is purely local.
       <br><br><strong>Consistency tradeoff:</strong> Asynchronous replication means <strong>RPO&gt;0</strong> — data loss is possible on DC failure. In active-active setups, consumers in different DCs may see different data at any given time, message ordering across origins is non-deterministic, and <strong>data divergence</strong> can occur. For use cases requiring strict consistency (financial transactions, inventory management, regulatory data), this may necessitate complex application-level conflict resolution.
@@ -389,6 +472,13 @@ function rr(label,value,cls,tip){
   return `<div class="result-row"><span class="result-label">${label}${t}</span><span class="result-value ${cls||''}">${value}</span></div>`;
 }
 function mc(number,desc,sub,cls){return `<div class="metric-big ${cls}"><div class="metric-number ${cls}">${number}</div><div class="metric-desc">${desc}</div>${sub?`<div class="metric-sub">${sub}</div>`:''}</div>`;}
+function storageBar(hotTB,coldTB,tiered){
+  if(!tiered) return `<div class="storage-bar"><div class="bar-hot" style="width:100%">${fmtTB(hotTB)}</div></div><div class="storage-bar-label"><span><span class="dot dot-hot"></span> Local disk</span></div>`;
+  const total=hotTB+coldTB, hp=total>0?Math.max(8,hotTB/total*100):50, cp=total>0?Math.max(8,100-hp):50;
+  return `<div class="storage-bar"><div class="bar-hot" style="width:${hp}%">${fmtTB(hotTB)}</div><div class="bar-cold" style="width:${cp}%">${fmtTB(coldTB)}</div></div><div class="storage-bar-label"><span><span class="dot dot-hot"></span> Hot (local disk)</span><span><span class="dot dot-cold"></span> Cold (object storage)</span></div>`;
+}
+
+function dcName(i){const el=document.getElementById('dcName'+i);return el&&el.value.trim()?el.value.trim():'DC-'+(i+1);}
 
 function banner(R,S,P,RF,isr,T,CR,C,util,jbod,tiered){
   const cn={'1':'None','3':'Snappy','4':'LZ4','5':'ZSTD'};
@@ -404,6 +494,269 @@ function banner(R,S,P,RF,isr,T,CR,C,util,jbod,tiered){
     <span><span class="ib-val">${util}%</span> util</span>
     ${jbod>1?`<span class="ib-sep">·</span><span><span class="ib-val">${jbod}×</span> JBOD</span>`:''}
     ${tiered?`<span class="ib-sep">·</span><span class="ib-val">Tiered</span>`:''}`;
+}
+
+function exportDiagram(diagId,fmt){
+  const el=document.getElementById(diagId);
+  if(!el) return;
+  const isStretch=diagId==='stretch-diagram';
+  const meshId=isStretch?'stretch-mesh':'multi-mesh';
+  const meshEl=document.getElementById(meshId);
+  const hasMesh=meshEl&&meshEl.style.display!=='none';
+
+  // Extract data from rendered DOM
+  const dcBoxes=[],arrowCols=[];
+  for(const child of el.children){
+    if(child.classList.contains('dc-box')){
+      const title=child.querySelector('h4').textContent;
+      const comps=[];
+      child.querySelectorAll('.dc-comp').forEach(c=>{
+        comps.push({label:c.querySelector('span').textContent,count:c.querySelector('.dc-cnt').textContent});
+      });
+      const barHot=child.querySelector('.bar-hot'),barCold=child.querySelector('.bar-cold');
+      const hotPct=barHot?parseFloat(barHot.style.width)||100:0;
+      const pEl=child.querySelector('p');
+      const noteHtml=pEl?pEl.innerHTML:'';
+      const noteLines=noteHtml.replace(/<br\s*\/?>/gi,'\n').replace(/<[^>]+>/g,'').split('\n').map(l=>l.trim()).filter(l=>l);
+      dcBoxes.push({title,comps,hotText:barHot?barHot.textContent:'',coldText:barCold?barCold.textContent:'',hotPct,hasCold:!!barCold,hasBar:!!barHot,noteLines});
+    }else if(child.classList.contains('arrow-col')){
+      const lbl=child.querySelector('.arrow-lbl'),ico=child.querySelector('.arrow-ico');
+      const kids=[...child.children];
+      const sub=kids.find(c=>!c.classList.contains('arrow-lbl')&&!c.classList.contains('arrow-ico'));
+      arrowCols.push({lines:lbl?lbl.innerHTML.replace(/<br\s*\/?>/gi,'\n').split('\n').map(l=>l.trim()):[],icon:ico?ico.textContent:'\u27F7',sub:sub?sub.textContent:''});
+    }
+  }
+  // Extract mesh link label
+  let meshLabel='';
+  if(hasMesh){
+    const ml=meshEl.querySelector('.mesh-link-label');
+    if(ml) meshLabel=ml.innerHTML.replace(/<br\s*\/?>/gi,' \u2014 ').replace(/<[^>]+>/g,'');
+  }
+
+  // Layout constants
+  const boxW=280,bpx=14,bpy=16,titleH=24,compH=28,barSecH=42,noteLineH=13;
+  const arrowW=100,gapX=10,pad=24;
+  const wrapPad=isStretch?0:10, wrapTop=isStretch?0:28; // extra padding for independent cluster wrappers
+  const maxComps=Math.max(...dcBoxes.map(b=>b.comps.length));
+  const maxNoteLines=Math.max(...dcBoxes.map(b=>b.noteLines.length),0);
+  const boxH=bpy+titleH+maxComps*compH+(dcBoxes[0]&&dcBoxes[0].hasBar?barSecH:0)+maxNoteLines*noteLineH+bpy;
+  const n=dcBoxes.length,nA=arrowCols.length;
+  const meshH=hasMesh?50:0;
+  const outerBoxW=boxW+wrapPad*2, outerBoxH=boxH+wrapTop+wrapPad;
+  const totalW=pad*2+n*outerBoxW+nA*(gapX*2+arrowW);
+  const totalH=pad*2+outerBoxH+meshH;
+
+  // Theme colors
+  const tc=isStretch?'#6f42c1':'#0b5ace';
+  const tbg=isStretch?'#f2f0f9':'#e8f0fe';
+  const tbd=isStretch?'rgba(111,66,193,0.4)':'rgba(11,90,206,0.4)';
+  const tcbg=isStretch?'rgba(124,92,191,0.12)':'rgba(25,113,194,0.12)';
+
+  function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+  // Track box X positions for mesh link
+  const boxXPositions=[];
+
+  // Shared drawing logic
+  function drawDiagram(mode,ctx){
+    let svg='';
+    function addRect(x,y,w,h,r,fill,stroke,sw){
+      if(mode==='svg'){
+        svg+=`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" fill="${fill}"${stroke?' stroke="'+stroke+'" stroke-width="'+(sw||1)+'"':''}/>\n`;
+      }else{
+        ctx.fillStyle=fill;ctx.beginPath();rrect(ctx,x,y,w,h,r);ctx.fill();
+        if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=sw||1;ctx.stroke();}
+      }
+    }
+    function addText(x,y,text,font,fill,align,upper,maxW){
+      const t=upper?text.toUpperCase():text;
+      if(mode==='svg'){
+        const ta=align==='right'?'end':align==='center'?'middle':'start';
+        svg+=`<text x="${x}" y="${y}" text-anchor="${ta}" font-family="${font.family}" font-size="${font.size}" font-weight="${font.weight}" fill="${fill}"${maxW?' textLength="'+maxW+'" lengthAdjust="spacing"':''}>${esc(t)}</text>\n`;
+      }else{
+        ctx.font=font.weight+' '+font.size+'px '+font.family;
+        ctx.fillStyle=fill;ctx.textAlign=align||'left';
+        if(maxW) ctx.fillText(t,x,y,maxW);
+        else ctx.fillText(t,x,y);
+      }
+    }
+    function addCircle(cx,cy,r,fill){
+      if(mode==='svg'){svg+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="${fill}"/>\n`;}
+      else{ctx.fillStyle=fill;ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fill();}
+    }
+    function addPath(d,stroke,sw,fill){
+      if(mode==='svg'){
+        svg+=`<path d="${d}" fill="${fill||'none'}" stroke="${stroke}" stroke-width="${sw}" stroke-dasharray="${sw>1?'':'4 3'}"/>\n`;
+      }else{
+        ctx.beginPath();ctx.strokeStyle=stroke;ctx.lineWidth=sw;
+        if(sw<=1)ctx.setLineDash([4,3]);
+        // Parse simple M/Q commands for canvas
+        const parts=d.match(/[MQ][^MQ]*/g);
+        if(parts)parts.forEach(p=>{
+          const cmd=p[0],nums=p.slice(1).trim().split(/[\s,]+/).map(Number);
+          if(cmd==='M')ctx.moveTo(nums[0],nums[1]);
+          else if(cmd==='Q')ctx.quadraticCurveTo(nums[0],nums[1],nums[2],nums[3]);
+        });
+        ctx.stroke();ctx.setLineDash([]);
+      }
+    }
+    const fSans={family:"'Open Sans',sans-serif",size:11,weight:'700'};
+    const fMono={family:"'JetBrains Mono',monospace",size:10,weight:'600'};
+    const fMonoBold={family:"'JetBrains Mono',monospace",size:11,weight:'700'};
+    const fSmall={family:"'Open Sans',sans-serif",size:9,weight:'400'};
+    const fSmallBold={family:"'Open Sans',sans-serif",size:9,weight:'700'};
+    const fBarText={family:"'JetBrains Mono',monospace",size:7,weight:'700'};
+    const fLabel={family:"'Open Sans',sans-serif",size:8,weight:'400'};
+    const fMesh={family:"'Open Sans',sans-serif",size:8,weight:'700'};
+
+    // Background
+    addRect(0,0,totalW,totalH,8,'#f8f9fa','#dee2e6',1);
+
+    let x=pad,ai=0;
+    boxXPositions.length=0;
+    for(let i=0;i<n;i++){
+      // Arrow
+      if(i>0&&ai<arrowCols.length){
+        const a=arrowCols[ai++];
+        const ax=x+gapX+arrowW/2,ay=pad+outerBoxH/2;
+        a.lines.forEach((ln,li)=>{addText(ax,ay-16+li*12,ln,fSmallBold,tc,'center',true);});
+        addText(ax,ay+10,a.icon,{family:'sans-serif',size:22,weight:'400'},'#6c757d','center');
+        if(a.sub) addText(ax,ay+28,a.sub,fSmall,'#6c757d','center');
+        x+=gapX*2+arrowW;
+      }
+
+      // Independent cluster wrapper for multi-cluster
+      if(!isStretch&&n>1){
+        // Dashed border
+        if(mode==='svg'){
+          svg+=`<rect x="${x}" y="${pad}" width="${outerBoxW}" height="${outerBoxH}" rx="10" fill="none" stroke="${tc}" stroke-width="2" stroke-dasharray="6 4"/>\n`;
+          const lx=x+outerBoxW/2;
+          svg+=`<rect x="${lx-55}" y="${pad-8}" width="110" height="16" rx="3" fill="#f8f9fa"/>\n`;
+          svg+=`<text x="${lx}" y="${pad+4}" text-anchor="middle" font-family="'Open Sans',sans-serif" font-size="8" font-weight="700" fill="${tc}" style="text-transform:uppercase;letter-spacing:0.5px">Independent Cluster</text>\n`;
+        }else{
+          ctx.strokeStyle=tc;ctx.lineWidth=2;ctx.setLineDash([6,4]);
+          ctx.beginPath();rrect(ctx,x,pad,outerBoxW,outerBoxH,10);ctx.stroke();ctx.setLineDash([]);
+          const lx=x+outerBoxW/2;
+          ctx.fillStyle='#f8f9fa';ctx.fillRect(lx-55,pad-8,110,16);
+          ctx.font="700 8px 'Open Sans',sans-serif";ctx.fillStyle=tc;ctx.textAlign='center';
+          ctx.fillText('INDEPENDENT CLUSTER',lx,pad+4);
+        }
+      }
+
+      const box=dcBoxes[i],bx=x+wrapPad,by=pad+wrapTop;
+      boxXPositions.push(x);
+      addRect(bx,by,boxW,boxH,6,tbg,tbd,2);
+
+      let cy=by+bpy+14;
+      addText(bx+bpx,cy,box.title,fSans,tc,'left',true);
+      cy+=titleH;
+
+      box.comps.forEach(comp=>{
+        const rw=boxW-bpx*2;
+        addRect(bx+bpx,cy-15,rw,compH-4,4,tcbg);
+        addText(bx+bpx+8,cy-1,comp.label,fMono,tc,'left');
+        addText(bx+boxW-bpx-6,cy-1,comp.count,fMonoBold,tc,'right');
+        cy+=compH;
+      });
+      for(let j=box.comps.length;j<maxComps;j++) cy+=compH;
+
+      if(box.hasBar){
+        cy+=6;
+        const barW=boxW-bpx*2;
+        if(box.hasCold){
+          const hw=Math.max(barW*0.15,barW*box.hotPct/100),cw=barW-hw;
+          addRect(bx+bpx,cy,hw,16,3,'#0d6efd');
+          addText(bx+bpx+hw/2,cy+12,box.hotText,fBarText,'#fff','center');
+          addRect(bx+bpx+hw,cy,cw,16,0,'#6f42c1');
+          addText(bx+bpx+hw+cw/2,cy+12,box.coldText,fBarText,'#fff','center');
+          cy+=20;
+          addCircle(bx+bpx+4,cy+2,3,'#0d6efd');
+          addText(bx+bpx+10,cy+5,'Hot (local disk)',fLabel,'#6c757d','left');
+          addCircle(bx+bpx+barW/2+4,cy+2,3,'#6f42c1');
+          addText(bx+bpx+barW/2+10,cy+5,'Cold (object storage)',fLabel,'#6c757d','left');
+        }else{
+          addRect(bx+bpx,cy,barW,16,3,'#0d6efd');
+          addText(bx+bpx+barW/2,cy+12,box.hotText,fBarText,'#fff','center');
+          cy+=20;
+          addCircle(bx+bpx+4,cy+2,3,'#0d6efd');
+          addText(bx+bpx+10,cy+5,'Local disk',fLabel,'#6c757d','left');
+        }
+        cy+=barSecH-20-6;
+      }
+
+      box.noteLines.forEach((ln,li)=>{
+        addText(bx+bpx,cy+4+li*noteLineH,ln,fSmall,'#495057','left');
+      });
+
+      x+=outerBoxW;
+    }
+
+    // Cluster wrapper for stretch (dashed box around all DCs)
+    if(isStretch&&n>1&&boxXPositions.length>=2){
+      const wx=boxXPositions[0]-8,wy=pad-14;
+      const ww=boxXPositions[n-1]+outerBoxW-wx+8;
+      const wh=outerBoxH+22;
+      const fWrap={family:"'Open Sans',sans-serif",size:9,weight:'700'};
+      // Dashed rect
+      if(mode==='svg'){
+        svg+=`<rect x="${wx}" y="${wy}" width="${ww}" height="${wh}" rx="12" fill="none" stroke="${tc}" stroke-width="2" stroke-dasharray="6 4"/>\n`;
+        // Label background + text
+        const lx=wx+ww/2,ly=wy;
+        svg+=`<rect x="${lx-60}" y="${ly-8}" width="120" height="16" rx="3" fill="#f8f9fa"/>\n`;
+        svg+=`<text x="${lx}" y="${ly+4}" text-anchor="middle" font-family="'Open Sans',sans-serif" font-size="9" font-weight="700" fill="${tc}" style="text-transform:uppercase;letter-spacing:0.5px">Single Kafka Cluster</text>\n`;
+      }else{
+        ctx.strokeStyle=tc;ctx.lineWidth=2;ctx.setLineDash([6,4]);
+        ctx.beginPath();rrect(ctx,wx,wy,ww,wh,12);ctx.stroke();ctx.setLineDash([]);
+        // Label background + text
+        const lx=wx+ww/2,ly=wy;
+        ctx.fillStyle='#f8f9fa';ctx.fillRect(lx-60,ly-8,120,16);
+        ctx.font="700 9px 'Open Sans',sans-serif";ctx.fillStyle=tc;ctx.textAlign='center';
+        ctx.fillText('SINGLE KAFKA CLUSTER',lx,ly+4);
+      }
+    }
+
+    // Mesh link for 3+ DCs
+    if(hasMesh&&boxXPositions.length>=3){
+      const x1=boxXPositions[0]+outerBoxW/2;
+      const x2=boxXPositions[boxXPositions.length-1]+outerBoxW/2;
+      const y1=pad+outerBoxH+4;
+      const cy2=y1+meshH/2+4;
+      const mx=(x1+x2)/2;
+      addPath(`M${x1},${y1} Q${mx},${y1+meshH-6} ${x2},${y1}`,tbd,2);
+      addText(mx,cy2,meshLabel,fMesh,tc,'center',true);
+    }
+
+    return svg;
+  }
+
+  if(fmt==='svg'){
+    let svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${totalW}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}">\n`;
+    svg+=`<defs><style>@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&amp;family=JetBrains+Mono:wght@400;600;700&amp;display=swap');</style></defs>\n`;
+    svg+=drawDiagram('svg');
+    svg+='</svg>';
+    const blob=new Blob([svg],{type:'image/svg+xml;charset=utf-8'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download=diagId+'.svg';a.click();
+    URL.revokeObjectURL(url);
+  }else{
+    const scale=2;
+    const canvas=document.createElement('canvas');
+    canvas.width=totalW*scale;canvas.height=totalH*scale;
+    const ctx=canvas.getContext('2d');
+    ctx.scale(scale,scale);
+    drawDiagram('canvas',ctx);
+    canvas.toBlob(function(blob){
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');a.href=url;a.download=diagId+'.png';a.click();
+      URL.revokeObjectURL(url);
+    },'image/png');
+  }
+}
+function rrect(ctx,x,y,w,h,r){
+  ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();
 }
 
 function applyNicPreset(){
@@ -431,8 +784,27 @@ function recalc(){
   document.getElementById('hotTierGroup').style.display=tiered?'block':'none';
   document.getElementById('interDcLatencyGroup').style.display=DC>1?'block':'none';
 
+  // DC name inputs — only rebuild if DC count changed
+  const dcNg=document.getElementById('dcNamesGroup');
+  const curDcInputs=dcNg.querySelectorAll('input[id^="dcName"]').length;
+  if(curDcInputs!==DC){
+    let dcNhtml='';
+    for(let i=0;i<DC;i++){
+      const prev=document.getElementById('dcName'+i);
+      const val=prev?prev.value:'';
+      dcNhtml+=`<div class="form-group"><label class="form-label">${DC>1?'DC '+(i+1)+' Name':'DC Name'}</label><input type="text" class="form-input" id="dcName${i}" value="${val.replace(/"/g,'&quot;')}" placeholder="DC-${i+1}" oninput="recalc()"></div>`;
+    }
+    dcNg.innerHTML=dcNhtml;
+  }
+
+  // Schema Registry & REST Proxy inputs
+  const srOn=v('srEnabled')===1, srSchemas=v('srSchemas'), srLookups=v('srLookups'), srHA=Math.max(1,v('srHA'));
+  const rpOn=v('rpEnabled')===1, rpReqs=v('rpRequests'), rpPayload=v('rpPayload'), rpInst=Math.max(1,v('rpInstances'));
+  document.getElementById('srConfigGroup').style.display=srOn?'block':'none';
+  document.getElementById('rpConfigGroup').style.display=rpOn?'block':'none';
+
   const b=banner(R,S,P,RF,isr,T,CR,C,Math.round(util*100),jbod,tiered);
-  ['throughput','storage','brokers','topology','partitions','summary'].forEach(t=>{const e=document.getElementById('banner-'+t);if(e)e.innerHTML=b;});
+  ['throughput','storage','brokers','topology','partitions','schema-registry','rest-proxy','summary'].forEach(t=>{const e=document.getElementById('banner-'+t);if(e)e.innerHTML=b;});
 
   // Throughput
   const inSteady=R*S/1048576, inPeak=inSteady*P, wirePeak=inPeak/CR;
@@ -469,8 +841,8 @@ function recalc(){
     rr('Compressed on disk',fmtTB(compR),'',`Raw / CR = ${fmtTB(rawR)} / ${CR} = ${fmtTB(compR)}`)+
     rr('With replication (RF='+RF+')',fmtTB(totRF),'',`Compressed × RF = ${fmtTB(compR)} × ${RF} = ${fmtTB(totRF)}`)+
     rr('With headroom (×1.35)',fmtTB(totH),'highlight',`With RF × 1.35 = ${fmtTB(totRF)} × 1.35 = ${fmtTB(totH)} — accounts for segment overhead, compaction, index files`)+
-    (tiered?rr('Hot tier (local)',fmtTB(hotT),'',`R × S × ${hotH}h × 3600 × RF / CR × 1.35 = ${fmtTB(hotT)}`):'') +
-    (tiered?rr('Cold tier (object)',fmtTB(coldT),'',`Total − Hot = ${fmtTB(totH)} − ${fmtTB(hotT)} = ${fmtTB(coldT)}`):'') +
+    (tiered?rr('Hot tier (local disk)',fmtTB(hotT),'',`R × S × ${hotH}h × 3600 × RF / CR × 1.35 = ${fmtTB(hotT)}`):'') +
+    (tiered?rr('Cold tier (object storage)',fmtTB(coldT),'',`Total − Hot = ${fmtTB(totH)} − ${fmtTB(hotT)} = ${fmtTB(coldT)}`):'') +
     (tiered?rr('Local disk savings',diskSav.toFixed(0)+'%','highlight',`(1 − Hot/Total) × 100 = (1 − ${fmtTB(hotT)}/${fmtTB(totH)}) × 100 = ${diskSav.toFixed(0)}%`):'');
 
   // Brokers
@@ -519,6 +891,18 @@ function recalc(){
     rr('RAM / controller',ctrlRam+' GB','',`Must hold metadata for all partitions in memory.`)+
     rr('Disk / controller',ctrlDisk,'',`Stores metadata log. NVMe recommended for ≥50 brokers.`);
 
+  // ── SR/RP sizing (compute early so topology totals can use them) ──
+  const srHeapMB=srOn?Math.max(256, Math.ceil(srSchemas*0.5)):0;
+  const srCpuPerInst=srOn?Math.max(1, Math.ceil(srLookups/10000)):0;
+  const srRamPerInst=srOn?Math.max(1, Math.ceil(srHeapMB/1024)+1):0;
+  const srDisk=srOn?'10 GB SSD':'N/A';
+  const srTotalCpu=srCpuPerInst*srHA, srTotalRam=srRamPerInst*srHA;
+
+  const rpThroughputMB=rpOn?(rpReqs*rpPayload/1048576):0;
+  const rpCpuPerInst=rpOn?Math.max(2, Math.ceil(rpReqs/(rpInst*2500))):0;
+  const rpRamPerInst=rpOn?Math.max(2, Math.ceil(rpThroughputMB/rpInst/50)+2):0;
+  const rpTotalCpu=rpCpuPerInst*rpInst, rpTotalRam=rpRamPerInst*rpInst;
+
   // ── Topology ──
   const stretchTotal=brokers;
   const stretchPerDC=DC>1?Math.ceil(brokers/DC):brokers;
@@ -532,12 +916,24 @@ function recalc(){
     const bk=i<DC-1?stretchPerDC:Math.max(1,stretchTotal-stretchPerDC*(DC-1));
     const ck=i<DC-1?stretchCtrlPerDC:Math.max(1,stretchCtrl-stretchCtrlPerDC*(DC-1));
     const replPerPart=RF>DC?Math.ceil(RF/DC):1;
-    sd+=`<div class="dc-box stretch-dc"><h4>DC-${i+1}</h4>
+    const storPerDC_s=tiered?hotT/Math.max(DC,1):localDisk/Math.max(DC,1);
+    const coldPerDC_s=tiered?coldT/Math.max(DC,1):0;
+    sd+=`<div class="dc-box stretch-dc"><h4>${dcName(i)}</h4>
       <div class="dc-comp"><span>Kafka Brokers</span><span class="dc-cnt">${bk}</span></div>
       <div class="dc-comp"><span>KRaft Controllers</span><span class="dc-cnt">${ck}</span></div>
-      <p style="margin-top:8px">~${replPerPart} replica(s) per partition<br><code style="font-size:.68rem">broker.rack=DC-${i+1}</code></p></div>`;
+      ${srOn?`<div class="dc-comp"><span>Schema Registry</span><span class="dc-cnt">${srHA}</span></div>`:''}
+      ${rpOn?`<div class="dc-comp"><span>REST Proxy</span><span class="dc-cnt">${rpInst}</span></div>`:''}
+      ${storageBar(storPerDC_s,coldPerDC_s,tiered)}
+      <p style="margin-top:6px">~${replPerPart} replica(s) per partition<br><code style="font-size:.68rem">broker.rack=${dcName(i)}</code></p></div>`;
   }
+  if(DC>1) sd=`<div class="cluster-wrap"><div class="cluster-wrap-label">Single Kafka Cluster</div>${sd}</div>`;
   document.getElementById('stretch-diagram').innerHTML=sd;
+  // Mesh link for 3 DCs (DC-1 ↔ DC-3)
+  const smEl=document.getElementById('stretch-mesh');
+  if(DC>=3){
+    smEl.style.display='block';
+    smEl.innerHTML=`<div class="mesh-link-line stretch-line"></div><div class="mesh-link-label stretch-lbl">Sync repl ${dcName(0)} ⟷ ${dcName(DC-1)}<br>${dcLat}ms RTT</div>`;
+  }else{smEl.style.display='none';}
 
   document.getElementById('stretch-sizing').innerHTML=
     rr('Total brokers (all DCs)',stretchTotal,'stretch-val',`Same as single-DC broker count: ${brokers}. RF distributes replicas across DCs via broker.rack.`)+
@@ -547,6 +943,20 @@ function recalc(){
     rr('Data consistency','Strong — single cluster, no divergence','highlight','All consumers see identical data in every DC. No conflict resolution needed.')+
     rr('RPO','0 (zero data loss)','highlight','All writes are synchronous across DCs before ACK to producer.')+
     rr('Inter-DC network',DC>1?fmtMBs(replW/DC)+' (replication traffic)':'N/A','',DC>1?`Replication write / DCs = ${fmtMBs(replW)} / ${DC} = ${fmtMBs(replW/DC)}. Built into RF — no separate fleet.`:'')+
+    (srOn?rr('Schema Registry / DC',srHA+' instances','',`${srCpuPerInst} CPU / ${srRamPerInst} GB RAM each`):'')+
+    (rpOn?rr('REST Proxy / DC',rpInst+' instances','',`${rpCpuPerInst} CPU / ${rpRamPerInst} GB RAM each`):'')+
+    '<div style="margin-top:16px;padding-top:16px;border-top:2px solid var(--border)">'+
+    (()=>{
+      const sBDC=DC>1?stretchPerDC:brokers;
+      const sCtrlDC=DC>1?Math.ceil(stretchCtrl/DC):ctrlN;
+      const cpuS=sBDC*cpuB+sCtrlDC*ctrlCpu+(srOn?srTotalCpu:0)+(rpOn?rpTotalCpu:0);
+      const ramS=sBDC*ramB+sCtrlDC*ctrlRam+(srOn?srTotalRam:0)+(rpOn?rpTotalRam:0);
+      return rr('Total CPU / DC',fmtNum(cpuS)+' cores','highlight',
+        `(${sBDC} brokers × ${cpuB}) + (${sCtrlDC} ctrl × ${ctrlCpu})${srOn?' + (SR: '+srTotalCpu+')':''}${rpOn?' + (RP: '+rpTotalCpu+')':''} = ${fmtNum(cpuS)}`)+
+        rr('Total RAM / DC',fmtNum(ramS)+' GB','highlight',
+        `(${sBDC} × ${ramB}) + (${sCtrlDC} × ${ctrlRam})${srOn?' + (SR: '+srTotalRam+')':''}${rpOn?' + (RP: '+rpTotalRam+')':''} = ${fmtNum(ramS)} GB`);
+    })()+
+    '</div>'+
     (DC>1&&dcLat>30?'<div class="info-box warn" style="margin-top:12px"><strong>Note:</strong> At '+dcLat+'ms RTT, consider tuning linger.ms and batch.size to amortize cross-DC overhead. Throughput is maintained but per-message latency increases.</div>':'');
 
   // Multi-cluster
@@ -558,13 +968,24 @@ function recalc(){
   let md='';
   for(let i=0;i<(DC>1?DC:1);i++){
     if(i>0) md+=`<div class="arrow-col"><div class="arrow-lbl" style="color:var(--multi-color)">Async repl<br>MM2 / CL</div><div class="arrow-ico">⟶</div><div style="font-size:.65rem;color:var(--text-muted)">${fmtMBs(xdc)}</div></div>`;
-    md+=`<div class="dc-box multi-dc"><h4>Cluster DC-${i+1}</h4>
+    const storPerDC_m=tiered?hotT:localDisk;
+    const coldPerDC_m=tiered?coldT:0;
+    md+=`<div class="cluster-indep"><div class="cluster-indep-label">Independent Cluster</div><div class="dc-box multi-dc"><h4>Cluster ${dcName(i)}</h4>
       <div class="dc-comp"><span>Kafka Brokers</span><span class="dc-cnt">${multiBPerDC}</span></div>
       <div class="dc-comp"><span>KRaft Controllers</span><span class="dc-cnt">${ctrlN}</span></div>
       ${mm2>0?`<div class="dc-comp"><span>MM2 Workers</span><span class="dc-cnt">${mm2}</span></div>`:''}
-      <p style="margin-top:8px">Independent cluster, RF=${RF} internal<br>Sized for 100% failover capacity</p></div>`;
+      ${srOn?`<div class="dc-comp"><span>Schema Registry</span><span class="dc-cnt">${srHA}</span></div>`:''}
+      ${rpOn?`<div class="dc-comp"><span>REST Proxy</span><span class="dc-cnt">${rpInst}</span></div>`:''}
+      ${storageBar(storPerDC_m,coldPerDC_m,tiered)}
+      <p style="margin-top:6px">Independent cluster, RF=${RF} internal<br>Sized for 100% failover capacity</p></div></div>`;
   }
   document.getElementById('multi-diagram').innerHTML=md;
+  // Mesh link for 3 DCs (DC-1 ↔ DC-3)
+  const mmEl=document.getElementById('multi-mesh');
+  if(DC>=3){
+    mmEl.style.display='block';
+    mmEl.innerHTML=`<div class="mesh-link-line multi-line"></div><div class="mesh-link-label multi-lbl">Async repl ${dcName(0)} ⟷ ${dcName(DC-1)}<br>${fmtMBs(xdc)}</div>`;
+  }else{mmEl.style.display='none';}
 
   document.getElementById('multi-sizing').innerHTML=
     rr('Brokers per DC',multiBPerDC,'multi-val',`Each DC must handle 100% of total load for failover. Same as single-DC count: ${brokers}.`)+
@@ -575,7 +996,21 @@ function recalc(){
     rr('Cross-DC link',DC>1?dcGbps+' Gbps':'N/A',DC>1?'warn':'',DC>1?`2 × xdcRepl × 8 / 1000 = 2 × ${fmtMBs(xdc)} = ${fmtMBs(xdcBw)} ≈ ${dcGbps} Gbps`:'')+
     rr('Data consistency',DC>1?'Eventual — async replication may diverge':'N/A','warn','Active-active: non-deterministic ordering, possible data conflicts. May require application-level reconciliation.')+
     rr('RPO',DC>1?'> 0 (replication lag)':'N/A','','Data in transit during DC failure is lost. Lag depends on MM2 throughput and network.')+
-    rr('Produce latency','Local only — no cross-DC penalty','highlight','Writes are acknowledged by local ISR only. No inter-DC RTT on produce path.');
+    rr('Produce latency','Local only — no cross-DC penalty','highlight','Writes are acknowledged by local ISR only. No inter-DC RTT on produce path.')+
+    (srOn?rr('Schema Registry / DC',srHA+' instances','',`${srCpuPerInst} CPU / ${srRamPerInst} GB RAM each`):'')+
+    (rpOn?rr('REST Proxy / DC',rpInst+' instances','',`${rpCpuPerInst} CPU / ${rpRamPerInst} GB RAM each`):'')+
+    '<div style="margin-top:16px;padding-top:16px;border-top:2px solid var(--border)">'+
+    (()=>{
+      const cpuM=multiBPerDC*cpuB+ctrlN*ctrlCpu+mm2*mm2Cpu+(srOn?srTotalCpu:0)+(rpOn?rpTotalCpu:0);
+      const ramM=multiBPerDC*ramB+ctrlN*ctrlRam+mm2*mm2Ram+(srOn?srTotalRam:0)+(rpOn?rpTotalRam:0);
+      return rr('Total CPU / DC',fmtNum(cpuM)+' cores','highlight',
+        `(${multiBPerDC} brokers × ${cpuB}) + (${ctrlN} ctrl × ${ctrlCpu})${mm2>0?' + ('+mm2+' MM2 × '+mm2Cpu+')':''}${srOn?' + (SR: '+srTotalCpu+')':''}${rpOn?' + (RP: '+rpTotalCpu+')':''} = ${fmtNum(cpuM)}`)+
+        rr('Total RAM / DC',fmtNum(ramM)+' GB','highlight',
+        `(${multiBPerDC} × ${ramB}) + (${ctrlN} × ${ctrlRam})${mm2>0?' + ('+mm2+' × '+mm2Ram+')':''}${srOn?' + (SR: '+srTotalRam+')':''}${rpOn?' + (RP: '+rpTotalRam+')':''} = ${fmtNum(ramM)} GB`)+
+        rr('Total CPU (all DCs)',fmtNum(cpuM*DC)+' cores','',`${fmtNum(cpuM)} × ${DC} DCs = ${fmtNum(cpuM*DC)}`)+
+        rr('Total RAM (all DCs)',fmtNum(ramM*DC)+' GB','',`${fmtNum(ramM)} × ${DC} DCs = ${fmtNum(ramM*DC)} GB`);
+    })()+
+    '</div>';
 
   // Comparison
   if(DC>1){
@@ -591,12 +1026,51 @@ function recalc(){
         <tr><td>Total brokers</td><td class="stretch-td">${stretchTotal}</td><td class="multi-td">${multiBTotal}</td></tr>
         <tr><td>Total controllers</td><td class="stretch-td">${stretchCtrl} (shared quorum)</td><td class="multi-td">${ctrlN*DC} (${ctrlN}/DC)</td></tr>
         <tr><td>Replication fleet</td><td class="stretch-td">None (built into RF)</td><td class="multi-td">${mm2} MM2 workers per DC</td></tr>
+        ${srOn?`<tr><td>Schema Registry</td><td class="stretch-td">${srHA} instances / DC</td><td class="multi-td">${srHA} instances / DC</td></tr>`:''}
+        ${rpOn?`<tr><td>REST Proxy</td><td class="stretch-td">${rpInst} instances / DC</td><td class="multi-td">${rpInst} instances / DC</td></tr>`:''}
         <tr><td>Cross-DC bandwidth</td><td class="stretch-td">${fmtMBs(replW/DC)} (RF traffic)</td><td class="multi-td">${fmtMBs(xdcBw)} per remote DC</td></tr>
+        ${(()=>{
+          const sCtrlDC=Math.ceil(stretchCtrl/DC);
+          const cpuS=stretchPerDC*cpuB+sCtrlDC*ctrlCpu+(srOn?srTotalCpu:0)+(rpOn?rpTotalCpu:0);
+          const cpuM=multiBPerDC*cpuB+ctrlN*ctrlCpu+mm2*mm2Cpu+(srOn?srTotalCpu:0)+(rpOn?rpTotalCpu:0);
+          const ramS=stretchPerDC*ramB+sCtrlDC*ctrlRam+(srOn?srTotalRam:0)+(rpOn?rpTotalRam:0);
+          const ramM=multiBPerDC*ramB+ctrlN*ctrlRam+mm2*mm2Ram+(srOn?srTotalRam:0)+(rpOn?rpTotalRam:0);
+          return `<tr><td>Total CPU / DC</td><td class="stretch-td">${fmtNum(cpuS)} cores</td><td class="multi-td">${fmtNum(cpuM)} cores</td></tr>
+        <tr><td>Total RAM / DC</td><td class="stretch-td">${fmtNum(ramS)} GB</td><td class="multi-td">${fmtNum(ramM)} GB</td></tr>`;
+        })()}
         <tr><td>Ordering</td><td class="stretch-td">Global per-partition (single cluster)</td><td class="multi-td">Per-origin only in active-active</td></tr>
         <tr><td>Failover</td><td class="stretch-td">Automatic (leader election)</td><td class="multi-td">Orchestrated client failover</td></tr>
         <tr><td>Best for</td><td class="stretch-td">Consistency-critical, RPO=0, co-located DCs</td><td class="multi-td">Latency-sensitive produces, geo-distributed DCs</td></tr>
       </tbody>`;
   }else{document.getElementById('dc-comparison-card').style.display='none';}
+
+  // ── Schema Registry Rendering ──
+  if(srOn){
+    document.getElementById('sr-sizing').innerHTML=
+      rr('Instances',srHA+'','highlight',`${srHA} instance(s) — ${srHA>=2?'leader handles writes, followers serve reads for HA':'single instance, no HA'}`)+
+      rr('JVM Heap / instance',srHeapMB+' MB','',`max(256 MB, ${srSchemas} schemas × 0.5 MB) = ${srHeapMB} MB. Schemas cached in memory.`)+
+      rr('CPU / instance',srCpuPerInst+' cores','',`max(1, ⌈${fmtNum(srLookups)} lookups / 10,000⌉) = ${srCpuPerInst}. Schema parsing and validation.`)+
+      rr('RAM / instance',srRamPerInst+' GB','',`⌈${srHeapMB} MB heap / 1024⌉ + 1 GB OS = ${srRamPerInst} GB`)+
+      rr('Disk / instance',srDisk,'','Schemas stored in Kafka topic (_schemas). Local disk only for logs and config.')+
+      rr('Total CPU (all instances)',srTotalCpu+' cores','highlight',`${srCpuPerInst} × ${srHA} = ${srTotalCpu}`)+
+      rr('Total RAM (all instances)',srTotalRam+' GB','highlight',`${srRamPerInst} × ${srHA} = ${srTotalRam} GB`);
+  } else {
+    document.getElementById('sr-sizing').innerHTML=rr('Status','Disabled','','Schema Registry is not enabled. Enable it in the configuration to see sizing.');
+  }
+
+  // ── REST Proxy Rendering ──
+  if(rpOn){
+    document.getElementById('rp-sizing').innerHTML=
+      rr('Instances',rpInst+'','highlight',`${rpInst} instance(s). Stateful for consumers — use sticky sessions (consumer pinned to one proxy).`)+
+      rr('Total throughput',fmtMBs(rpThroughputMB),'',`${fmtNum(rpReqs)} req/s × ${rpPayload} B = ${fmtMBs(rpThroughputMB)}`)+
+      rr('Throughput / instance',fmtMBs(rpThroughputMB/rpInst),'',`${fmtMBs(rpThroughputMB)} / ${rpInst} = ${fmtMBs(rpThroughputMB/rpInst)}`)+
+      rr('CPU / instance',rpCpuPerInst+' cores','',`max(2, ⌈${fmtNum(rpReqs)} / (${rpInst} × 2,500)⌉) = ${rpCpuPerInst}. JSON serde is CPU-intensive.`)+
+      rr('RAM / instance',rpRamPerInst+' GB','',`max(2, ⌈${fmtMBs(rpThroughputMB/rpInst)} / 50⌉ + 2) = ${rpRamPerInst} GB. Connection pools + request buffers.`)+
+      rr('Total CPU (all instances)',rpTotalCpu+' cores','highlight',`${rpCpuPerInst} × ${rpInst} = ${rpTotalCpu}`)+
+      rr('Total RAM (all instances)',rpTotalRam+' GB','highlight',`${rpRamPerInst} × ${rpInst} = ${rpTotalRam} GB`);
+  } else {
+    document.getElementById('rp-sizing').innerHTML=rr('Status','Disabled','','REST Proxy is not enabled. Enable it in the configuration to see sizing.');
+  }
 
   // Partitions
   const pt=30,minP=Math.max(1,Math.ceil(inPeak/pt)),recP=Math.max(6,minP);
@@ -616,8 +1090,10 @@ function recalc(){
   const sBT=isM?multiBTotal:stretchTotal;
   const sCtrl=isM?ctrlN:(DC>1?stretchCtrl:ctrlN);
   const sMM=isM?mm2:0;
-  const cpuDC=sBDC*cpuB+(isM?ctrlN:Math.ceil(sCtrl/Math.max(DC,1)))*ctrlCpu+sMM*mm2Cpu;
-  const ramDC=sBDC*ramB+(isM?ctrlN:Math.ceil(sCtrl/Math.max(DC,1)))*ctrlRam+sMM*mm2Ram;
+  const srCpuDC=srOn?srTotalCpu:0, srRamDC=srOn?srTotalRam:0;
+  const rpCpuDC=rpOn?rpTotalCpu:0, rpRamDC=rpOn?rpTotalRam:0;
+  const cpuDC=sBDC*cpuB+(isM?ctrlN:Math.ceil(sCtrl/Math.max(DC,1)))*ctrlCpu+sMM*mm2Cpu+srCpuDC+rpCpuDC;
+  const ramDC=sBDC*ramB+(isM?ctrlN:Math.ceil(sCtrl/Math.max(DC,1)))*ctrlRam+sMM*mm2Ram+srRamDC+rpRamDC;
   const tl=DC>1?(isM?'<span class="topo-context multi">Multiple Clusters</span>':'<span class="topo-context stretch">Stretch Cluster</span>'):'Single DC';
 
   document.getElementById('summary-headline').innerHTML=
@@ -631,8 +1107,10 @@ function recalc(){
     rr('Kafka Brokers',sBDC,'',`${cpuB} CPU / ${ramB} GB RAM / ${diskB.toFixed(1)} TB ${dType} / ${nicR} each`)+
     rr('KRaft Controllers',(isM?ctrlN:Math.ceil(sCtrl/Math.max(DC,1))),'',`${ctrlCpu} CPU / ${ctrlRam} GB RAM / ${ctrlDisk} each`)+
     (sMM>0?rr('MirrorMaker 2',sMM+' instances','',`${mm2Cpu} CPU / ${mm2Ram} GB RAM each. Handles ${fmtMBs(xdc)} cross-DC replication.`):'')+
-    rr('Total CPU / DC',fmtNum(cpuDC)+' cores','highlight',`(${sBDC} brokers × ${cpuB}) + (${isM?ctrlN:Math.ceil(sCtrl/Math.max(DC,1))} ctrl × ${ctrlCpu})${sMM>0?' + ('+sMM+' MM2 × '+mm2Cpu+')':''} = ${fmtNum(cpuDC)}`)+
-    rr('Total RAM / DC',fmtNum(ramDC)+' GB','highlight',`(${sBDC} × ${ramB}) + (${isM?ctrlN:Math.ceil(sCtrl/Math.max(DC,1))} × ${ctrlRam})${sMM>0?' + ('+sMM+' × '+mm2Ram+')':''} = ${fmtNum(ramDC)} GB`)+
+    (srOn?rr('Schema Registry',srHA+' instances','',`${srCpuPerInst} CPU / ${srRamPerInst} GB RAM each. ${srSchemas} schemas cached.`):'')+
+    (rpOn?rr('REST Proxy',rpInst+' instances','',`${rpCpuPerInst} CPU / ${rpRamPerInst} GB RAM each. ${fmtNum(rpReqs)} req/s.`):'')+
+    rr('Total CPU / DC',fmtNum(cpuDC)+' cores','highlight',`(${sBDC} brokers × ${cpuB}) + (${isM?ctrlN:Math.ceil(sCtrl/Math.max(DC,1))} ctrl × ${ctrlCpu})${sMM>0?' + ('+sMM+' MM2 × '+mm2Cpu+')':''}${srOn?' + (SR: '+srTotalCpu+')':''}${rpOn?' + (RP: '+rpTotalCpu+')':''} = ${fmtNum(cpuDC)}`)+
+    rr('Total RAM / DC',fmtNum(ramDC)+' GB','highlight',`(${sBDC} × ${ramB}) + (${isM?ctrlN:Math.ceil(sCtrl/Math.max(DC,1))} × ${ctrlRam})${sMM>0?' + ('+sMM+' × '+mm2Ram+')':''}${srOn?' + (SR: '+srTotalRam+')':''}${rpOn?' + (RP: '+rpTotalRam+')':''} = ${fmtNum(ramDC)} GB`)+
     rr('Local disk / DC',fmtTB(localDisk),'highlight',tiered?`Hot tier only: ${hotH}h of data with RF=${RF}`:`Full ${T}d retention with RF=${RF}`)+
     (tiered?rr('Object storage / DC',fmtTB(coldT),'',`Cold tier: total ${fmtTB(totH)} − hot ${fmtTB(hotT)} = ${fmtTB(coldT)}`):'')+
     '<div style="margin-top:16px;padding-top:16px;border-top:2px solid var(--border)">'+
