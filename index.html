@@ -212,6 +212,13 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 .export-btn { display:inline-flex; align-items:center; gap:5px; padding:5px 14px; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--bg-card); color:var(--text-dim); font-family:var(--font-body); font-size:.72rem; font-weight:600; cursor:pointer; transition:all .2s; text-transform:uppercase; letter-spacing:.03em; }
 .export-btn:hover { background:var(--bg-hover); color:var(--text); border-color:var(--border-accent); }
 .export-btn svg { width:14px; height:14px; }
+
+.mode-tabs { display:flex; gap:0; margin-bottom:28px; border-radius:var(--radius); overflow:hidden; border:2px solid var(--kafka-dark); box-shadow:var(--shadow); }
+.mode-tab { flex:1; padding:14px 20px; background:var(--bg-card); border:none; color:var(--text-dim); font-family:var(--font-body); font-size:.92rem; font-weight:700; cursor:pointer; transition:all .2s; text-align:center; }
+.mode-tab:first-child { border-right:1px solid var(--border); }
+.mode-tab:hover { background:var(--bg-hover); color:var(--text); }
+.mode-tab.active { background:linear-gradient(180deg,#4a5568 0%,#2d3748 100%); color:#fff; }
+.mode-tab .mode-icon { font-size:1.1rem; margin-right:6px; }
 </style>
 </head>
 <body>
@@ -223,6 +230,12 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
   <div class="hero-badges"><span class="badge badge-kraft">KRaft Mode</span><span class="badge badge-tiered">Tiered Storage</span><span class="badge badge-topo">Multi-DC</span></div>
 </header>
 
+<div class="mode-tabs">
+  <button class="mode-tab active" onclick="showMode('calculator')"><span class="mode-icon">📐</span>Sizing Calculator</button>
+  <button class="mode-tab" onclick="showMode('diagram')"><span class="mode-icon">🏗️</span>Architecture Diagram</button>
+</div>
+
+<div id="mode-calculator">
 <nav class="nav-tabs" role="tablist">
   <button class="nav-tab active" onclick="showTab('inputs',this)">Inputs</button>
   <button class="nav-tab" onclick="showTab('throughput',this)">Throughput</button>
@@ -444,6 +457,51 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
   <div class="card"><div class="card-header"><div class="card-icon teal">📋</div><div><div class="card-title">Full Sizing Summary</div><div class="card-subtitle" id="summary-topo-label"></div></div></div><div id="summary-details"></div></div>
 </div>
 
+</div><!-- /mode-calculator -->
+
+<div id="mode-diagram" style="display:none">
+  <div class="section-title">Architecture Diagram Builder <span class="line"></span></div>
+  <div class="info-box info" style="margin-top:0;margin-bottom:24px"><strong>Design your Kafka architecture diagram manually.</strong> Specify DCs, components, and counts — the diagram updates live. Export as PNG or SVG.</div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header"><div class="card-icon blue">🏢</div><div><div class="card-title">DC Layout</div><div class="card-subtitle">Datacenters and topology</div></div></div>
+      <div class="form-group"><label class="form-label">Topology</label>
+        <select class="form-select" id="diagTopology" onchange="renderArchDiagram()"><option value="stretch">Stretch Cluster (single logical cluster)</option><option value="multi">Multiple Clusters (independent per DC)</option></select></div>
+      <div class="form-group"><label class="form-label">Number of Datacenters</label>
+        <select class="form-select" id="diagDcCount" onchange="renderArchDiagram()"><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option></select></div>
+      <div class="form-row" id="diagDcNamesGroup" style="margin-top:8px"></div>
+      <div id="diagLinksGroup" style="margin-top:12px"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><div class="card-icon teal">⚙️</div><div><div class="card-title">Components per DC</div><div class="card-subtitle">Applied to each datacenter</div></div></div>
+      <div class="form-group"><label class="form-label">Kafka Brokers</label><input type="number" class="form-input" id="diagBrokers" value="6" min="0" oninput="renderArchDiagram()"></div>
+      <div class="form-group"><label class="form-label">KRaft Controllers</label><input type="number" class="form-input" id="diagControllers" value="3" min="0" oninput="renderArchDiagram()"></div>
+      <div class="form-group"><label class="form-label">Schema Registry</label><input type="number" class="form-input" id="diagSR" value="0" min="0" oninput="renderArchDiagram()"><div class="form-unit">0 to hide</div></div>
+      <div class="form-group"><label class="form-label">REST Proxy</label><input type="number" class="form-input" id="diagRP" value="0" min="0" oninput="renderArchDiagram()"><div class="form-unit">0 to hide</div></div>
+      <div class="form-group"><label class="form-label">MirrorMaker 2 Workers</label><input type="number" class="form-input" id="diagMM2" value="0" min="0" oninput="renderArchDiagram()"><div class="form-unit">0 to hide (multi-cluster only)</div></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:20px">
+    <div class="card-header"><div class="card-icon purple">💾</div><div><div class="card-title">Storage Visualization</div></div></div>
+    <div class="form-row" style="max-width:700px">
+      <div class="form-group"><label class="form-label">Show Storage Bar</label>
+        <select class="form-select" id="diagStorageEnabled" onchange="renderArchDiagram()"><option value="0">Hidden</option><option value="1" selected>Local only</option><option value="2">Tiered (hot + cold)</option></select></div>
+      <div class="form-group"><label class="form-label">Hot / Local Label</label><input type="text" class="form-input" id="diagHotLabel" value="2.4 TB" oninput="renderArchDiagram()"></div>
+      <div class="form-group" id="diagColdGroup"><label class="form-label">Cold / Object Label</label><input type="text" class="form-input" id="diagColdLabel" value="12.0 TB" oninput="renderArchDiagram()"></div>
+      <div class="form-group" id="diagHotPctGroup"><label class="form-label">Hot %</label><input type="number" class="form-input" id="diagHotPct" value="30" min="5" max="95" oninput="renderArchDiagram()"><div class="form-unit">Bar proportion</div></div>
+    </div>
+  </div>
+
+  <div style="margin-top:24px">
+    <div class="export-bar"><button class="export-btn" onclick="exportDiagram('diag-output','svg')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> SVG</button><button class="export-btn" onclick="exportDiagram('diag-output','png')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> PNG</button></div>
+    <div class="arch-diagram" id="diag-output"></div>
+    <div class="mesh-link" id="diag-mesh" style="display:none"></div>
+  </div>
+</div>
+
 </div>
 <script>
 let topology='stretch';
@@ -499,33 +557,39 @@ function banner(R,S,P,RF,isr,T,CR,C,util,jbod,tiered){
 function exportDiagram(diagId,fmt){
   const el=document.getElementById(diagId);
   if(!el) return;
-  const isStretch=diagId==='stretch-diagram';
-  const meshId=isStretch?'stretch-mesh':'multi-mesh';
+  // Detect stretch vs multi by inspecting DOM content
+  const isStretch=diagId==='stretch-diagram'||(diagId==='diag-output'&&(el.querySelector('.stretch-dc')!==null||el.querySelector('.cluster-wrap')!==null));
+  const meshId=diagId==='diag-output'?'diag-mesh':(isStretch?'stretch-mesh':'multi-mesh');
   const meshEl=document.getElementById(meshId);
   const hasMesh=meshEl&&meshEl.style.display!=='none';
 
-  // Extract data from rendered DOM
+  // Extract data from rendered DOM — walk into cluster-wrap/cluster-indep wrappers
   const dcBoxes=[],arrowCols=[];
-  for(const child of el.children){
-    if(child.classList.contains('dc-box')){
-      const title=child.querySelector('h4').textContent;
-      const comps=[];
-      child.querySelectorAll('.dc-comp').forEach(c=>{
-        comps.push({label:c.querySelector('span').textContent,count:c.querySelector('.dc-cnt').textContent});
-      });
-      const barHot=child.querySelector('.bar-hot'),barCold=child.querySelector('.bar-cold');
-      const hotPct=barHot?parseFloat(barHot.style.width)||100:0;
-      const pEl=child.querySelector('p');
-      const noteHtml=pEl?pEl.innerHTML:'';
-      const noteLines=noteHtml.replace(/<br\s*\/?>/gi,'\n').replace(/<[^>]+>/g,'').split('\n').map(l=>l.trim()).filter(l=>l);
-      dcBoxes.push({title,comps,hotText:barHot?barHot.textContent:'',coldText:barCold?barCold.textContent:'',hotPct,hasCold:!!barCold,hasBar:!!barHot,noteLines});
-    }else if(child.classList.contains('arrow-col')){
-      const lbl=child.querySelector('.arrow-lbl'),ico=child.querySelector('.arrow-ico');
-      const kids=[...child.children];
-      const sub=kids.find(c=>!c.classList.contains('arrow-lbl')&&!c.classList.contains('arrow-ico'));
-      arrowCols.push({lines:lbl?lbl.innerHTML.replace(/<br\s*\/?>/gi,'\n').split('\n').map(l=>l.trim()):[],icon:ico?ico.textContent:'\u27F7',sub:sub?sub.textContent:''});
+  function extractFromContainer(container){
+    for(const child of container.children){
+      if(child.classList.contains('dc-box')){
+        const title=child.querySelector('h4').textContent;
+        const comps=[];
+        child.querySelectorAll('.dc-comp').forEach(c=>{
+          comps.push({label:c.querySelector('span').textContent,count:c.querySelector('.dc-cnt').textContent});
+        });
+        const barHot=child.querySelector('.bar-hot'),barCold=child.querySelector('.bar-cold');
+        const hotPct=barHot?parseFloat(barHot.style.width)||100:0;
+        const pEl=child.querySelector('p');
+        const noteHtml=pEl?pEl.innerHTML:'';
+        const noteLines=noteHtml.replace(/<br\s*\/?>/gi,'\n').replace(/<[^>]+>/g,'').split('\n').map(l=>l.trim()).filter(l=>l);
+        dcBoxes.push({title,comps,hotText:barHot?barHot.textContent:'',coldText:barCold?barCold.textContent:'',hotPct,hasCold:!!barCold,hasBar:!!barHot,noteLines});
+      }else if(child.classList.contains('arrow-col')){
+        const lbl=child.querySelector('.arrow-lbl'),ico=child.querySelector('.arrow-ico');
+        const kids=[...child.children];
+        const sub=kids.find(c=>!c.classList.contains('arrow-lbl')&&!c.classList.contains('arrow-ico'));
+        arrowCols.push({lines:lbl?lbl.innerHTML.replace(/<br\s*\/?>/gi,'\n').split('\n').map(l=>l.trim()):[],icon:ico?ico.textContent:'\u27F7',sub:sub?sub.textContent:''});
+      }else if(child.classList.contains('cluster-wrap')||child.classList.contains('cluster-indep')){
+        extractFromContainer(child);
+      }
     }
   }
+  extractFromContainer(el);
   // Extract mesh link label
   let meshLabel='';
   if(hasMesh){
@@ -769,6 +833,143 @@ function syncNicPreset(){
   const sel=document.getElementById('nicPreset');
   const match=[...sel.options].find(o=>o.value===val);
   sel.value=match?val:'';
+}
+
+// ═══ Architecture Diagram Builder ═══
+function showMode(mode){
+  document.getElementById('mode-calculator').style.display=mode==='calculator'?'block':'none';
+  document.getElementById('mode-diagram').style.display=mode==='diagram'?'block':'none';
+  document.querySelectorAll('.mode-tab').forEach(b=>b.classList.remove('active'));
+  document.querySelector(`.mode-tab[onclick="showMode('${mode}')"]`).classList.add('active');
+  if(mode==='diagram') renderArchDiagram();
+}
+
+let diagDcInputCount=0;
+let diagLinkInputCount=-1;
+function renderArchDiagram(){
+  const topo=document.getElementById('diagTopology').value;
+  const DC=parseInt(document.getElementById('diagDcCount').value)||1;
+  const brokers=parseInt(document.getElementById('diagBrokers').value)||0;
+  const controllers=parseInt(document.getElementById('diagControllers').value)||0;
+  const sr=parseInt(document.getElementById('diagSR').value)||0;
+  const rp=parseInt(document.getElementById('diagRP').value)||0;
+  const mm2=parseInt(document.getElementById('diagMM2').value)||0;
+  const storMode=parseInt(document.getElementById('diagStorageEnabled').value)||0;
+  const hotLabel=document.getElementById('diagHotLabel').value||'';
+  const coldLabel=document.getElementById('diagColdLabel').value||'';
+  const hotPct=parseInt(document.getElementById('diagHotPct').value)||30;
+
+  // Toggle cold/hotPct visibility
+  document.getElementById('diagColdGroup').style.display=storMode===2?'block':'none';
+  document.getElementById('diagHotPctGroup').style.display=storMode===2?'block':'none';
+
+  // Dynamic DC name inputs
+  const ng=document.getElementById('diagDcNamesGroup');
+  if(diagDcInputCount!==DC){
+    let h='';
+    for(let i=0;i<DC;i++){
+      const prev=document.getElementById('diagDcName'+i);
+      const val=prev?prev.value:'';
+      h+=`<div class="form-group"><label class="form-label">${DC>1?'DC '+(i+1)+' Name':'DC Name'}</label><input type="text" class="form-input" id="diagDcName${i}" value="${val.replace(/"/g,'&quot;')}" placeholder="DC-${i+1}" oninput="renderArchDiagram()"></div>`;
+    }
+    ng.innerHTML=h;
+    diagDcInputCount=DC;
+  }
+
+  function diagDcName(i){const el=document.getElementById('diagDcName'+i);return el&&el.value.trim()?el.value.trim():'DC-'+(i+1);}
+
+  // Dynamic inter-DC link label inputs — one per link pair
+  // For N DCs: links are (0,1),(1,2),...,(N-2,N-1) sequential + (0,N-1) mesh for N>=3
+  const linkPairs=[];
+  for(let i=0;i<DC-1;i++) linkPairs.push([i,i+1]);
+  if(DC>=3) linkPairs.push([0,DC-1]);
+  const lg=document.getElementById('diagLinksGroup');
+  if(diagLinkInputCount!==linkPairs.length){
+    // Full rebuild when link count changes
+    if(linkPairs.length===0){
+      lg.innerHTML='';
+    }else{
+      let lh='<label class="form-label" style="margin-bottom:6px">Inter-DC Labels</label><div class="form-unit" style="margin-bottom:8px">Shown on arrows between DCs</div>';
+      linkPairs.forEach((p,idx)=>{
+        const prev=document.getElementById('diagLink'+idx);
+        const val=prev?prev.value:'5ms RTT';
+        lh+=`<div class="form-group" style="margin-bottom:6px"><div style="display:flex;align-items:center;gap:8px"><span class="diagLinkSpan" style="font-size:.72rem;font-weight:600;color:var(--text-dim);white-space:nowrap;min-width:100px">${diagDcName(p[0])} \u2194 ${diagDcName(p[1])}</span><input type="text" class="form-input" id="diagLink${idx}" value="${val.replace(/"/g,'&quot;')}" placeholder="${diagDcName(p[0])} \u2194 ${diagDcName(p[1])}" oninput="renderArchDiagram()" style="flex:1"></div></div>`;
+      });
+      lg.innerHTML=lh;
+    }
+    diagLinkInputCount=linkPairs.length;
+  }else{
+    // Just update labels in-place when DC names change (no cursor loss)
+    const spans=lg.querySelectorAll('.diagLinkSpan');
+    linkPairs.forEach((p,idx)=>{
+      if(spans[idx]) spans[idx].textContent=diagDcName(p[0])+' \u2194 '+diagDcName(p[1]);
+    });
+  }
+
+  function diagLinkLabel(idx){const el=document.getElementById('diagLink'+idx);return el?el.value:'';}
+
+  // Build storage bar HTML
+  function dStorageBar(){
+    if(storMode===0) return '';
+    if(storMode===1){
+      return `<div class="storage-bar"><div class="bar-hot" style="width:100%">${hotLabel}</div></div><div class="storage-bar-label"><span><span class="dot dot-hot"></span> Local disk</span></div>`;
+    }
+    const hp=Math.max(8,hotPct), cp=Math.max(8,100-hotPct);
+    return `<div class="storage-bar"><div class="bar-hot" style="width:${hp}%">${hotLabel}</div><div class="bar-cold" style="width:${cp}%">${coldLabel}</div></div><div class="storage-bar-label"><span><span class="dot dot-hot"></span> Hot (local disk)</span><span><span class="dot dot-cold"></span> Cold (object storage)</span></div>`;
+  }
+
+  const isStretch=topo==='stretch';
+  const showMM2=!isStretch&&mm2>0;
+
+  // Build diagram HTML
+  let html='';
+  for(let i=0;i<DC;i++){
+    // Arrow between DCs — sequential link index is i-1
+    if(i>0){
+      const lbl=diagLinkLabel(i-1);
+      if(isStretch){
+        html+=`<div class="arrow-col"><div class="arrow-lbl" style="color:var(--stretch-color)">Sync repl<br>built into RF</div><div class="arrow-ico">⟷</div><div style="font-size:.65rem;color:var(--text-muted)">${lbl}</div></div>`;
+      }else{
+        html+=`<div class="arrow-col"><div class="arrow-lbl" style="color:var(--multi-color)">Async repl<br>MM2 / CL</div><div class="arrow-ico">⟶</div><div style="font-size:.65rem;color:var(--text-muted)">${lbl}</div></div>`;
+      }
+    }
+
+    const dcClass=isStretch?'stretch-dc':'multi-dc';
+    const name=isStretch?diagDcName(i):'Cluster '+diagDcName(i);
+    let box=`<div class="dc-box ${dcClass}"><h4>${name}</h4>`;
+    if(brokers>0) box+=`<div class="dc-comp"><span>Kafka Brokers</span><span class="dc-cnt">${brokers}</span></div>`;
+    if(controllers>0) box+=`<div class="dc-comp"><span>KRaft Controllers</span><span class="dc-cnt">${controllers}</span></div>`;
+    if(showMM2) box+=`<div class="dc-comp"><span>MM2 Workers</span><span class="dc-cnt">${mm2}</span></div>`;
+    if(sr>0) box+=`<div class="dc-comp"><span>Schema Registry</span><span class="dc-cnt">${sr}</span></div>`;
+    if(rp>0) box+=`<div class="dc-comp"><span>REST Proxy</span><span class="dc-cnt">${rp}</span></div>`;
+    box+=dStorageBar();
+    box+='</div>';
+
+    if(!isStretch&&DC>1){
+      html+=`<div class="cluster-indep"><div class="cluster-indep-label">Independent Cluster</div>${box}</div>`;
+    }else{
+      html+=box;
+    }
+  }
+
+  // Wrap stretch in cluster-wrap
+  if(isStretch&&DC>1){
+    html=`<div class="cluster-wrap"><div class="cluster-wrap-label">Single Kafka Cluster</div>${html}</div>`;
+  }
+
+  document.getElementById('diag-output').innerHTML=html;
+
+  // Mesh link for 3+ DCs — uses the last link pair (0 ↔ DC-1)
+  const meshEl=document.getElementById('diag-mesh');
+  if(DC>=3){
+    meshEl.style.display='block';
+    const cls=isStretch?'stretch':'multi';
+    const lbl=isStretch?'Sync repl':'Async repl';
+    const meshLinkLabel=diagLinkLabel(linkPairs.length-1);
+    meshEl.innerHTML=`<div class="mesh-link-line ${cls}-line"></div><div class="mesh-link-label ${cls}-lbl">${lbl} ${diagDcName(0)} ⟷ ${diagDcName(DC-1)}${meshLinkLabel?'<br>'+meshLinkLabel:''}</div>`;
+  }else{
+    meshEl.style.display='none';
+  }
 }
 
 function recalc(){

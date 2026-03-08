@@ -16,8 +16,16 @@ A comprehensive, browser-based calculator for sizing Apache Kafka clusters. Deri
 - **Multi-DC topology** — compares stretch clusters vs. multiple independent clusters with MirrorMaker 2, with custom DC names and full mesh connectivity diagrams
 - **Schema Registry & REST Proxy sizing** — optional component sizing with full integration into infrastructure totals
 - **Side-by-side scenario comparison** — 4 fully independent editable workload profiles
+- **Architecture Diagram Builder** — design custom Kafka architecture diagrams with manual DC layout, component counts, per-link inter-DC labels, and storage visualization
 - **Topology export** — export architecture diagrams as PNG or SVG images
 - **Live recalculation** — every input change instantly updates all derived metrics
+
+## Modes
+
+The application has two top-level modes:
+
+- **Sizing Calculator** — derive infrastructure requirements from workload parameters (all sections below)
+- **Architecture Diagram Builder** — manually design and export Kafka architecture diagrams (see [Architecture Diagram Builder](#architecture-diagram-builder) section)
 
 ## Calculator Sections
 
@@ -167,6 +175,25 @@ Aggregated infrastructure view per datacenter and across all DCs:
 - MirrorMaker 2 fleet (if multi-cluster topology)
 - Total CPU cores, RAM, local disk, and object storage
 - Cross-DC bandwidth requirements
+
+## Architecture Diagram Builder
+
+A standalone diagram design tool that reuses the same visual components as the Sizing Calculator's Topology tab but with fully manual control over all parameters.
+
+**DC Layout:**
+- **Topology** — stretch cluster (single logical cluster) or multiple independent clusters
+- **Number of Datacenters** — 1, 2, or 3
+- **Custom DC Names** — user-defined names for each datacenter
+- **Per-link Inter-DC Labels** — individual labels for each DC pair (e.g. different RTT values for DC-1↔DC-2 vs DC-2↔DC-3 vs DC-1↔DC-3)
+
+**Components per DC:**
+- Kafka Brokers, KRaft Controllers, Schema Registry, REST Proxy, MirrorMaker 2 Workers (set to 0 to hide any component)
+
+**Storage Visualization:**
+- Hidden, Local only, or Tiered (hot + cold) with custom labels and proportions
+
+**Export:**
+- PNG (2x retina) and SVG export using the same native rendering engine as topology diagrams
 
 ## Getting Started
 
