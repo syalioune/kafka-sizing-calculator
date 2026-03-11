@@ -182,9 +182,10 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 .mesh-link-label.multi-lbl { color:var(--multi-color); background:var(--multi-bg); }
 
 /* Storage bar visualization */
-.storage-bar { margin-top:10px; border-radius:4px; overflow:hidden; height:18px; display:flex; font-size:.6rem; font-weight:700; font-family:var(--font-mono); line-height:18px; }
-.storage-bar .bar-hot { background:#0d6efd; color:#fff; text-align:center; white-space:nowrap; overflow:hidden; min-width:20px; }
-.storage-bar .bar-cold { background:#6f42c1; color:#fff; text-align:center; white-space:nowrap; overflow:hidden; min-width:20px; }
+.storage-bar { margin-top:10px; height:18px; display:flex; font-size:.6rem; font-weight:700; font-family:var(--font-mono); line-height:18px; }
+.storage-bar .bar-hot { background:#0d6efd; color:#fff; text-align:center; white-space:nowrap; min-width:20px; border-radius:4px 0 0 4px; }
+.storage-bar .bar-cold { background:#6f42c1; color:#fff; text-align:center; white-space:nowrap; min-width:20px; border-radius:0 4px 4px 0; }
+.storage-bar .bar-hot:last-child { border-radius:4px; }
 .storage-bar-label { font-size:.65rem; color:var(--text-muted); margin-top:3px; display:flex; justify-content:space-between; }
 .storage-bar-label span { display:inline-flex; align-items:center; gap:3px; }
 .storage-bar-label .dot { width:7px; height:7px; border-radius:2px; display:inline-block; }
@@ -481,6 +482,13 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
       <div class="form-group"><label class="form-label">Schema Registry</label><input type="number" class="form-input" id="diagSR" value="0" min="0" oninput="renderArchDiagram()"><div class="form-unit">0 to hide</div></div>
       <div class="form-group"><label class="form-label">REST Proxy</label><input type="number" class="form-input" id="diagRP" value="0" min="0" oninput="renderArchDiagram()"><div class="form-unit">0 to hide</div></div>
       <div class="form-group"><label class="form-label">MirrorMaker 2 Workers</label><input type="number" class="form-input" id="diagMM2" value="0" min="0" oninput="renderArchDiagram()"><div class="form-unit">0 to hide (multi-cluster only)</div></div>
+      <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+        <label class="form-label" style="margin-bottom:8px">Hardware per Broker</label>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">vCPU</label><input type="number" class="form-input" id="diagCpu" value="16" min="0" oninput="renderArchDiagram()"></div>
+          <div class="form-group"><label class="form-label">RAM (GB)</label><input type="number" class="form-input" id="diagRam" value="64" min="0" oninput="renderArchDiagram()"></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -695,15 +703,15 @@ function exportDiagram(diagId,fmt){
         if(mode==='svg'){
           svg+=`<rect x="${x}" y="${pad}" width="${outerBoxW}" height="${outerBoxH}" rx="10" fill="none" stroke="${tc}" stroke-width="2" stroke-dasharray="6 4"/>\n`;
           const lx=x+outerBoxW/2;
-          svg+=`<rect x="${lx-55}" y="${pad-8}" width="110" height="16" rx="3" fill="#f8f9fa"/>\n`;
-          svg+=`<text x="${lx}" y="${pad+4}" text-anchor="middle" font-family="'Open Sans',sans-serif" font-size="8" font-weight="700" fill="${tc}" style="text-transform:uppercase;letter-spacing:0.5px">Independent Cluster</text>\n`;
+          svg+=`<rect x="${lx-72}" y="${pad-8}" width="144" height="16" rx="3" fill="#f8f9fa"/>\n`;
+          svg+=`<text x="${lx}" y="${pad+4}" text-anchor="middle" font-family="'Open Sans',sans-serif" font-size="8" font-weight="700" fill="${tc}" style="text-transform:uppercase;letter-spacing:0.5px">Independent Kafka Cluster</text>\n`;
         }else{
           ctx.strokeStyle=tc;ctx.lineWidth=2;ctx.setLineDash([6,4]);
           ctx.beginPath();rrect(ctx,x,pad,outerBoxW,outerBoxH,10);ctx.stroke();ctx.setLineDash([]);
           const lx=x+outerBoxW/2;
-          ctx.fillStyle='#f8f9fa';ctx.fillRect(lx-55,pad-8,110,16);
+          ctx.fillStyle='#f8f9fa';ctx.fillRect(lx-72,pad-8,144,16);
           ctx.font="700 8px 'Open Sans',sans-serif";ctx.fillStyle=tc;ctx.textAlign='center';
-          ctx.fillText('INDEPENDENT CLUSTER',lx,pad+4);
+          ctx.fillText('INDEPENDENT KAFKA CLUSTER',lx,pad+4);
         }
       }
 
@@ -854,6 +862,8 @@ function renderArchDiagram(){
   const sr=parseInt(document.getElementById('diagSR').value)||0;
   const rp=parseInt(document.getElementById('diagRP').value)||0;
   const mm2=parseInt(document.getElementById('diagMM2').value)||0;
+  const diagCpu=parseInt(document.getElementById('diagCpu').value)||0;
+  const diagRam=parseInt(document.getElementById('diagRam').value)||0;
   const storMode=parseInt(document.getElementById('diagStorageEnabled').value)||0;
   const hotLabel=document.getElementById('diagHotLabel').value||'';
   const coldLabel=document.getElementById('diagColdLabel').value||'';
@@ -943,10 +953,11 @@ function renderArchDiagram(){
     if(sr>0) box+=`<div class="dc-comp"><span>Schema Registry</span><span class="dc-cnt">${sr}</span></div>`;
     if(rp>0) box+=`<div class="dc-comp"><span>REST Proxy</span><span class="dc-cnt">${rp}</span></div>`;
     box+=dStorageBar();
+    if(diagCpu>0||diagRam>0) box+=`<p style="margin-top:6px"><span style="font-size:.68rem;color:var(--text-dim)">${diagCpu} vCPU · ${diagRam} GB RAM / broker</span></p>`;
     box+='</div>';
 
     if(!isStretch&&DC>1){
-      html+=`<div class="cluster-indep"><div class="cluster-indep-label">Independent Cluster</div>${box}</div>`;
+      html+=`<div class="cluster-indep"><div class="cluster-indep-label">Independent Kafka Cluster</div>${box}</div>`;
     }else{
       html+=box;
     }
@@ -1125,7 +1136,7 @@ function recalc(){
       ${srOn?`<div class="dc-comp"><span>Schema Registry</span><span class="dc-cnt">${srHA}</span></div>`:''}
       ${rpOn?`<div class="dc-comp"><span>REST Proxy</span><span class="dc-cnt">${rpInst}</span></div>`:''}
       ${storageBar(storPerDC_s,coldPerDC_s,tiered)}
-      <p style="margin-top:6px">~${replPerPart} replica(s) per partition<br><code style="font-size:.68rem">broker.rack=${dcName(i)}</code></p></div>`;
+      <p style="margin-top:6px"><span style="font-size:.68rem;color:var(--text-dim)">${cpuB} vCPU · ${ramB} GB RAM / broker</span><br>~${replPerPart} replica(s) per partition<br><code style="font-size:.68rem">broker.rack=${dcName(i)}</code></p></div>`;
   }
   if(DC>1) sd=`<div class="cluster-wrap"><div class="cluster-wrap-label">Single Kafka Cluster</div>${sd}</div>`;
   document.getElementById('stretch-diagram').innerHTML=sd;
@@ -1171,14 +1182,14 @@ function recalc(){
     if(i>0) md+=`<div class="arrow-col"><div class="arrow-lbl" style="color:var(--multi-color)">Async repl<br>MM2 / CL</div><div class="arrow-ico">⟶</div><div style="font-size:.65rem;color:var(--text-muted)">${fmtMBs(xdc)}</div></div>`;
     const storPerDC_m=tiered?hotT:localDisk;
     const coldPerDC_m=tiered?coldT:0;
-    md+=`<div class="cluster-indep"><div class="cluster-indep-label">Independent Cluster</div><div class="dc-box multi-dc"><h4>Cluster ${dcName(i)}</h4>
+    md+=`<div class="cluster-indep"><div class="cluster-indep-label">Independent Kafka Cluster</div><div class="dc-box multi-dc"><h4>Cluster ${dcName(i)}</h4>
       <div class="dc-comp"><span>Kafka Brokers</span><span class="dc-cnt">${multiBPerDC}</span></div>
       <div class="dc-comp"><span>KRaft Controllers</span><span class="dc-cnt">${ctrlN}</span></div>
       ${mm2>0?`<div class="dc-comp"><span>MM2 Workers</span><span class="dc-cnt">${mm2}</span></div>`:''}
       ${srOn?`<div class="dc-comp"><span>Schema Registry</span><span class="dc-cnt">${srHA}</span></div>`:''}
       ${rpOn?`<div class="dc-comp"><span>REST Proxy</span><span class="dc-cnt">${rpInst}</span></div>`:''}
       ${storageBar(storPerDC_m,coldPerDC_m,tiered)}
-      <p style="margin-top:6px">Independent cluster, RF=${RF} internal<br>Sized for 100% failover capacity</p></div></div>`;
+      <p style="margin-top:6px"><span style="font-size:.68rem;color:var(--text-dim)">${cpuB} vCPU · ${ramB} GB RAM / broker</span><br>Independent cluster, RF=${RF} internal<br>Sized for 100% failover capacity</p></div></div>`;
   }
   document.getElementById('multi-diagram').innerHTML=md;
   // Mesh link for 3 DCs (DC-1 ↔ DC-3)
