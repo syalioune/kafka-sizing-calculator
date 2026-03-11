@@ -214,6 +214,14 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 .export-btn:hover { background:var(--bg-hover); color:var(--text); border-color:var(--border-accent); }
 .export-btn svg { width:14px; height:14px; }
 
+/* Config bar */
+.config-bar { display:flex; align-items:center; gap:10px; padding:10px 16px; margin-bottom:18px; background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); flex-wrap:wrap; }
+.config-bar .form-input { flex:1; min-width:180px; max-width:360px; margin:0; }
+.config-bar .export-btn { white-space:nowrap; }
+.config-name-label { font-size:.78rem; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:.04em; white-space:nowrap; }
+.config-toast { position:fixed; bottom:28px; left:50%; transform:translateX(-50%); background:#198754; color:#fff; padding:10px 24px; border-radius:var(--radius); font-size:.82rem; font-weight:600; box-shadow:0 4px 16px rgba(0,0,0,.18); z-index:999; animation:fadeIn .2s; }
+.config-loaded-badge { display:inline-flex; align-items:center; gap:5px; padding:3px 10px; background:var(--accent-blue); color:#fff; border-radius:var(--radius-sm); font-size:.7rem; font-weight:700; letter-spacing:.02em; margin-left:4px; }
+
 /* Sizing report collapsible */
 .sizing-report-wrap { margin-top:20px; }
 .sizing-report-wrap details { border:1px solid var(--border); border-radius:var(--radius); background:var(--bg-card); }
@@ -247,6 +255,12 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 </div>
 
 <div id="mode-calculator">
+<div class="config-bar">
+  <span class="config-name-label">Configuration:</span>
+  <input type="text" class="form-input" id="configName" placeholder="e.g. Production cluster Q3 2026" value="">
+  <button class="export-btn" onclick="saveConfig()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Save as URL</button>
+  <button class="export-btn" onclick="resetConfig()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg> Reset</button>
+</div>
 <nav class="nav-tabs" role="tablist">
   <button class="nav-tab active" onclick="showTab('inputs',this)">Inputs</button>
   <button class="nav-tab" onclick="showTab('throughput',this)">Throughput</button>
@@ -871,6 +885,144 @@ function syncNicPreset(){
   sel.value=match?val:'';
 }
 
+// ═══ Configuration Save / Load (unsigned JWT) ═══
+function b64url(str){return btoa(str).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function b64urlDecode(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return atob(s);}
+
+// List of all sizing calculator input IDs and their types
+const configFields=[
+  {id:'eventRate',t:'n'},{id:'eventSize',t:'n'},{id:'peakMultiplier',t:'n'},
+  {id:'compression',t:'s'},{id:'rf',t:'n'},{id:'minIsr',t:'n'},
+  {id:'retention',t:'n'},{id:'consumers',t:'n'},
+  {id:'maxDiskWrite',t:'n'},{id:'jbodCount',t:'n'},{id:'maxStorage',t:'n'},
+  {id:'nic',t:'n'},{id:'utilization',t:'n'},
+  {id:'tieredStorage',t:'s'},{id:'hotTierHours',t:'n'},
+  {id:'dcCount',t:'s'},{id:'interDcLatency',t:'n'},
+  {id:'srEnabled',t:'s'},{id:'srSchemas',t:'n'},{id:'srLookups',t:'n'},{id:'srHA',t:'s'},
+  {id:'rpEnabled',t:'s'},{id:'rpRequests',t:'n'},{id:'rpPayload',t:'n'},{id:'rpInstances',t:'n'},
+];
+
+function saveConfig(){
+  const name=document.getElementById('configName').value.trim();
+  if(!name){document.getElementById('configName').focus();showToast('Please enter a configuration name first.','#dc3545');return;}
+
+  const payload={name:name,topo:topology};
+  configFields.forEach(f=>{
+    const el=document.getElementById(f.id);
+    if(el) payload[f.id]=f.t==='n'?parseFloat(el.value)||0:el.value;
+  });
+  // Dynamic DC names
+  const dc=parseInt(document.getElementById('dcCount').value)||1;
+  const dcNames=[];
+  for(let i=0;i<dc;i++){const el=document.getElementById('dcName'+i);dcNames.push(el?el.value:'');}
+  payload.dcNames=dcNames;
+
+  const header=b64url(JSON.stringify({alg:'none',typ:'JWT'}));
+  const body=b64url(JSON.stringify(payload));
+  const jwt=header+'.'+body+'.';
+
+  const url=new URL(window.location.href.split('?')[0]);
+  url.searchParams.set('config',jwt);
+  const fullUrl=url.toString();
+
+  navigator.clipboard.writeText(fullUrl).then(()=>{
+    showToast('Configuration URL copied to clipboard!');
+  }).catch(()=>{
+    // Fallback: show URL in a prompt
+    prompt('Copy this configuration URL:',fullUrl);
+  });
+
+  // Update browser URL without reload
+  window.history.replaceState(null,'',fullUrl);
+}
+
+function loadConfig(){
+  const params=new URLSearchParams(window.location.search);
+  const jwt=params.get('config');
+  if(!jwt) return false;
+
+  try{
+    const parts=jwt.split('.');
+    if(parts.length!==3) return false;
+    const header=JSON.parse(b64urlDecode(parts[0]));
+    if(header.typ!=='JWT') return false;
+    const payload=JSON.parse(b64urlDecode(parts[1]));
+
+    // Restore config name
+    if(payload.name) document.getElementById('configName').value=payload.name;
+
+    // Restore all fields
+    configFields.forEach(f=>{
+      if(payload[f.id]!==undefined){
+        const el=document.getElementById(f.id);
+        if(el) el.value=payload[f.id];
+      }
+    });
+
+    // Sync NIC preset
+    syncNicPreset();
+
+    // Restore DC count first (triggers dcName input generation on recalc)
+    if(payload.dcCount) document.getElementById('dcCount').value=payload.dcCount;
+
+    // Restore topology
+    if(payload.topo) setTopology(payload.topo);
+
+    // Need recalc to generate DC name inputs, then set their values
+    recalc();
+
+    // Restore DC names after recalc generated the inputs
+    if(payload.dcNames){
+      payload.dcNames.forEach((n,i)=>{
+        const el=document.getElementById('dcName'+i);
+        if(el) el.value=n;
+      });
+    }
+
+    // Final recalc with DC names in place
+    recalc();
+
+    showToast('Configuration "'+payload.name+'" loaded successfully.');
+    return true;
+  }catch(e){
+    console.warn('Failed to load config from URL:',e);
+    return false;
+  }
+}
+
+function resetConfig(){
+  // Remove config param from URL
+  const url=new URL(window.location.href);
+  url.searchParams.delete('config');
+  window.history.replaceState(null,'',url.toString());
+
+  // Reset all fields to defaults
+  const defaults={eventRate:100000,eventSize:1024,peakMultiplier:3,compression:'4',rf:3,minIsr:2,
+    retention:7,consumers:3,maxDiskWrite:500,jbodCount:1,maxStorage:15,nic:3125,utilization:50,
+    tieredStorage:'1',hotTierHours:24,dcCount:'2',interDcLatency:5,
+    srEnabled:'1',srSchemas:200,srLookups:5000,srHA:'2',
+    rpEnabled:'1',rpRequests:10000,rpPayload:2048,rpInstances:2};
+  Object.entries(defaults).forEach(([id,val])=>{
+    const el=document.getElementById(id);
+    if(el) el.value=val;
+  });
+  document.getElementById('configName').value='';
+  syncNicPreset();
+  topology='stretch';
+  setTopology('stretch');
+  recalc();
+  showToast('Configuration reset to defaults.');
+}
+
+function showToast(msg,bg){
+  const d=document.createElement('div');
+  d.className='config-toast';
+  if(bg) d.style.background=bg;
+  d.textContent=msg;
+  document.body.appendChild(d);
+  setTimeout(()=>{d.style.opacity='0';d.style.transition='opacity .3s';setTimeout(()=>d.remove(),300);},2500);
+}
+
 // ═══ Architecture Diagram Builder ═══
 function showMode(mode){
   document.getElementById('mode-calculator').style.display=mode==='calculator'?'block':'none';
@@ -1365,8 +1517,10 @@ function recalc(){
   const cn={'1':'None','3':'Snappy','4':'LZ4','5':'ZSTD'};
   const topoLabel=DC>1?(isM?'Multiple Independent Kafka Clusters':'Stretch Cluster (single logical cluster across DCs)'):'Single Datacenter';
   const ctrlPerDC=isM?ctrlN:Math.ceil(sCtrl/Math.max(DC,1));
+  const cfgName=document.getElementById('configName').value.trim();
   let rpt=`KAFKA CLUSTER SIZING REPORT
-${'═'.repeat(60)}
+${'═'.repeat(60)}${cfgName?`
+Configuration: ${cfgName}`:''}
 Generated: ${new Date().toLocaleString()}
 
 1. INPUT PARAMETERS
@@ -1760,7 +1914,8 @@ function renderMon(){
   document.getElementById('monitoring-body').innerHTML=m.map(x=>`<tr><td><span class="mon-metric">${x[0]}</span></td><td>${x[1]}</td><td class="mon-warn">${x[2]}</td><td class="mon-crit">${x[3]}</td><td>${x[4]}</td></tr>`).join('');
 }
 
-recalc();
+// Load config from URL if present, otherwise just recalc with defaults
+if(!loadConfig()) recalc();
 </script>
 </body>
 </html>
