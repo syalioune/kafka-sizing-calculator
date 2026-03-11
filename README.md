@@ -12,12 +12,14 @@ A comprehensive, browser-based calculator for sizing Apache Kafka clusters. Deri
 
 - **Zero dependencies** — single self-contained HTML file, no build step, no server required
 - **KRaft-native** — all sizing assumes KRaft mode (no ZooKeeper)
-- **Tiered Storage** aware — models hot/cold tier split with KIP-405
+- **Tiered Storage** aware — models hot/cold tier split with KIP-405, with object storage requirements in all summaries
 - **Multi-DC topology** — compares stretch clusters vs. multiple independent clusters with MirrorMaker 2, with custom DC names and full mesh connectivity diagrams
 - **Schema Registry & REST Proxy sizing** — optional component sizing with full integration into infrastructure totals
 - **Side-by-side scenario comparison** — 4 fully independent editable workload profiles
-- **Architecture Diagram Builder** — design custom Kafka architecture diagrams with manual DC layout, component counts, per-link inter-DC labels, and storage visualization
+- **Architecture Diagram Builder** — design custom Kafka architecture diagrams with manual DC layout, component counts, per-link inter-DC labels, hardware specs per broker, and storage visualization
 - **Topology export** — export architecture diagrams as PNG or SVG images
+- **Configuration save/load** — name and save any sizing configuration as a shareable URL (unsigned JWT); loading a URL restores all inputs and recomputes results
+- **Sizing report** — collapsible copy/paste-ready text report with all formulas, values, and explanations for inclusion in documents
 - **Live recalculation** — every input change instantly updates all derived metrics
 
 ## Modes
@@ -173,8 +175,21 @@ Aggregated infrastructure view per datacenter and across all DCs:
 - Broker and controller counts with per-node specs
 - Schema Registry and REST Proxy instances (if enabled)
 - MirrorMaker 2 fleet (if multi-cluster topology)
-- Total CPU cores, RAM, local disk, and object storage
+- Total CPU cores, RAM, local disk, and object storage (per DC and across all DCs)
 - Cross-DC bandwidth requirements
+
+Includes a collapsible **Sizing Computations Report** — a structured plain-text export of all calculations with formulas and actual values, ready to copy/paste into Word or PDF documents.
+
+## Configuration Save / Load
+
+Sizing configurations can be named, saved as shareable URLs, and restored on page load.
+
+- **Name** — give your sizing configuration a descriptive name (e.g. "Production cluster Q3 2026")
+- **Save as URL** — serializes all sizing inputs into an unsigned JWT (`alg: "none"`) stored in a `?config=` query parameter; the URL is copied to clipboard and can be shared or bookmarked
+- **Load** — opening a URL with a `?config=` parameter automatically restores all inputs (workload, hardware, tiered storage, SR/RP, topology, DC names) and recomputes all results
+- **Reset** — restores all inputs to factory defaults
+
+The JWT payload contains a flat JSON object with all input field values, the topology mode, and DC names. No signature or server is required — the configuration is entirely client-side.
 
 ## Architecture Diagram Builder
 
@@ -188,6 +203,7 @@ A standalone diagram design tool that reuses the same visual components as the S
 
 **Components per DC:**
 - Kafka Brokers, KRaft Controllers, Schema Registry, REST Proxy, MirrorMaker 2 Workers (set to 0 to hide any component)
+- Hardware per Broker — configurable vCPU and RAM displayed in each DC box
 
 **Storage Visualization:**
 - Hidden, Local only, or Tiered (hot + cold) with custom labels and proportions
