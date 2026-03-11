@@ -214,6 +214,16 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 .export-btn:hover { background:var(--bg-hover); color:var(--text); border-color:var(--border-accent); }
 .export-btn svg { width:14px; height:14px; }
 
+/* Sizing report collapsible */
+.sizing-report-wrap { margin-top:20px; }
+.sizing-report-wrap details { border:1px solid var(--border); border-radius:var(--radius); background:var(--bg-card); }
+.sizing-report-wrap summary { padding:14px 18px; font-weight:700; font-size:.82rem; cursor:pointer; color:var(--text); list-style:none; display:flex; align-items:center; gap:8px; user-select:none; }
+.sizing-report-wrap summary::-webkit-details-marker { display:none; }
+.sizing-report-wrap summary::before { content:'▶'; font-size:.6rem; transition:transform .2s; display:inline-block; }
+.sizing-report-wrap details[open] summary::before { transform:rotate(90deg); }
+.sizing-report-wrap .report-toolbar { display:flex; gap:8px; padding:0 18px 10px; }
+.sizing-report-wrap pre { margin:0; padding:18px; font-family:var(--font-mono); font-size:.72rem; line-height:1.7; white-space:pre-wrap; word-wrap:break-word; color:var(--text); background:var(--bg-input); border-top:1px solid var(--border); max-height:600px; overflow-y:auto; }
+
 .mode-tabs { display:flex; gap:0; margin-bottom:28px; border-radius:var(--radius); overflow:hidden; border:2px solid var(--kafka-dark); box-shadow:var(--shadow); }
 .mode-tab { flex:1; padding:14px 20px; background:var(--bg-card); border:none; color:var(--text-dim); font-family:var(--font-body); font-size:.92rem; font-weight:700; cursor:pointer; transition:all .2s; text-align:center; }
 .mode-tab:first-child { border-right:1px solid var(--border); }
@@ -456,6 +466,15 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
   <div class="section-title">Infrastructure Summary <span class="line"></span></div>
   <div class="grid-3" id="summary-headline"></div>
   <div class="card"><div class="card-header"><div class="card-icon teal">📋</div><div><div class="card-title">Full Sizing Summary</div><div class="card-subtitle" id="summary-topo-label"></div></div></div><div id="summary-details"></div></div>
+  <div class="sizing-report-wrap">
+    <details id="sizing-report-details">
+      <summary>Sizing Computations Report — Copy/Paste Ready</summary>
+      <div class="report-toolbar">
+        <button class="export-btn" onclick="copySizingReport()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy to Clipboard</button>
+      </div>
+      <pre id="sizing-report-text"></pre>
+    </details>
+  </div>
 </div>
 
 </div><!-- /mode-calculator -->
@@ -533,6 +552,15 @@ function fmtMBs(mb){return mb>=1000?(mb/1000).toFixed(1)+' GB/s':mb.toFixed(1)+'
 function fmtTB(tb){return tb>=1000?(tb/1000).toFixed(1)+' PB':tb.toFixed(1)+' TB';}
 function fmtNum(n){return n.toLocaleString('en-US',{maximumFractionDigits:0});}
 function fmtEvt(n){return n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).toFixed(0)+'K':n.toString();}
+function copySizingReport(){
+  const text=document.getElementById('sizing-report-text').textContent;
+  navigator.clipboard.writeText(text).then(()=>{
+    const btn=document.querySelector('.sizing-report-wrap .export-btn');
+    const orig=btn.innerHTML;
+    btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Copied!';
+    setTimeout(()=>{btn.innerHTML=orig;},2000);
+  });
+}
 function rr(label,value,cls,tip){
   const t=tip?` <span class="tip" data-tip="${tip}">?</span>`:'';
   return `<div class="result-row"><span class="result-label">${label}${t}</span><span class="result-value ${cls||''}">${value}</span></div>`;
@@ -1332,6 +1360,257 @@ function recalc(){
     rr('Total RAM',fmtNum(ramDC*DC)+' GB','',`${fmtNum(ramDC)} GB per DC × ${DC} = ${fmtNum(ramDC*DC)} GB`)+
     rr('Total local disk',fmtTB(localDisk*DC),'',`${fmtTB(localDisk)} per DC × ${DC} = ${fmtTB(localDisk*DC)}`)+
     (DC>1&&isM?rr('Inter-DC bandwidth',dcGbps+' Gbps / link','',`${fmtMBs(xdcBw)} ≈ ${dcGbps} Gbps per inter-DC link`):'')+'</div>';
+
+  // ── Sizing Computations Report (structured text) ──
+  const cn={'1':'None','3':'Snappy','4':'LZ4','5':'ZSTD'};
+  const topoLabel=DC>1?(isM?'Multiple Independent Kafka Clusters':'Stretch Cluster (single logical cluster across DCs)'):'Single Datacenter';
+  const ctrlPerDC=isM?ctrlN:Math.ceil(sCtrl/Math.max(DC,1));
+  let rpt=`KAFKA CLUSTER SIZING REPORT
+${'═'.repeat(60)}
+Generated: ${new Date().toLocaleString()}
+
+1. INPUT PARAMETERS
+${'─'.repeat(60)}
+  Event rate (steady)        : ${fmtEvt(R)} events/s
+  Average event size         : ${S} bytes
+  Peak multiplier            : ×${P}
+  Replication factor (RF)    : ${RF}
+  Min in-sync replicas (ISR) : ${isr}
+  Retention period           : ${T} days
+  Compression                : ${cn[CR]||CR} (ratio ${CR}:1)
+  Consumer groups            : ${C}
+  Datacenters                : ${DC}
+  Topology                   : ${topoLabel}
+  Target utilization         : ${Math.round(util*100)}%
+  Max disk write / disk      : ${dwSingle} MB/s
+  JBOD disks / broker        : ${jbod}
+  Max storage / broker       : ${maxStor} TB
+  NIC capacity               : ${fmtNum(NIC)} MB/s
+  Tiered storage             : ${tiered?'Enabled (hot tier: '+hotH+'h)':'Disabled'}
+${DC>1?'  Inter-DC latency          : '+dcLat+' ms RTT\n':''}
+2. THROUGHPUT ANALYSIS
+${'─'.repeat(60)}
+  Ingress (steady)           : ${fmtMBs(inSteady)}
+    Formula: R × S = ${fmtEvt(R)} × ${S} B = ${fmtMBs(inSteady)}
+
+  Ingress (peak)             : ${fmtMBs(inPeak)}
+    Formula: steady × P = ${fmtMBs(inSteady)} × ${P} = ${fmtMBs(inPeak)}
+
+  Wire ingress (compressed)  : ${fmtMBs(wirePeak)}
+    Formula: peak / CR = ${fmtMBs(inPeak)} / ${CR} = ${fmtMBs(wirePeak)}
+
+  Internal replication write  : ${fmtMBs(replW)}
+    Formula: peak × RF = ${fmtMBs(inPeak)} × ${RF} = ${fmtMBs(replW)}
+
+  Consumer egress            : ${fmtMBs(conEgr)}
+    Formula: peak × C = ${fmtMBs(inPeak)} × ${C} = ${fmtMBs(conEgr)}
+
+  Total broker I/O           : ${fmtMBs(totalIO)}
+    Formula: peak × (RF + C) = ${fmtMBs(inPeak)} × (${RF} + ${C}) = ${fmtMBs(totalIO)}
+${DC>1?`
+  Cross-DC replication       : ${fmtMBs(xdc)} per remote DC
+    Formula: wire ingress (compressed) = ${fmtMBs(wirePeak)}
+  Cross-DC bandwidth         : ${fmtMBs(xdcBw)} per remote DC
+    Formula: 2 × cross-DC repl = 2 × ${fmtMBs(xdc)} = ${fmtMBs(xdcBw)}
+`:''}
+3. STORAGE ANALYSIS
+${'─'.repeat(60)}
+  Raw retention (uncompressed) : ${fmtTB(rawR)}
+    Formula: R × S × T × 86400 = ${fmtEvt(R)} × ${S} B × ${T}d × 86400 = ${fmtTB(rawR)}
+
+  Compressed on disk           : ${fmtTB(compR)}
+    Formula: raw / CR = ${fmtTB(rawR)} / ${CR} = ${fmtTB(compR)}
+
+  With replication (RF=${RF})    : ${fmtTB(totRF)}
+    Formula: compressed × RF = ${fmtTB(compR)} × ${RF} = ${fmtTB(totRF)}
+
+  With headroom (×1.35)        : ${fmtTB(totH)}
+    Formula: withRF × 1.35 = ${fmtTB(totRF)} × 1.35 = ${fmtTB(totH)}
+    Accounts for segment overhead, compaction, index files
+${tiered?`
+  Hot tier (local disk)        : ${fmtTB(hotT)}
+    Formula: R × S × ${hotH}h × 3600 × RF / CR × 1.35 = ${fmtTB(hotT)}
+
+  Cold tier (object storage)   : ${fmtTB(coldT)}
+    Formula: total − hot = ${fmtTB(totH)} − ${fmtTB(hotT)} = ${fmtTB(coldT)}
+
+  Local disk savings           : ${diskSav.toFixed(0)}%
+    Formula: (1 − hot/total) × 100 = (1 − ${fmtTB(hotT)}/${fmtTB(totH)}) × 100 = ${diskSav.toFixed(0)}%
+`:''}
+4. BROKER SIZING
+${'─'.repeat(60)}
+  a) Broker count constraints:
+
+    Network-bound              : ${bNet} brokers
+      Formula: ⌈ totalIO / (NIC × util) ⌉ = ⌈ ${fmtMBs(totalIO)} / (${fmtNum(NIC)} MB/s × ${Math.round(util*100)}%) ⌉ = ${bNet}
+
+    Disk write-bound${jbod>1?' ('+jbod+'× JBOD)':''}          : ${bDisk} brokers
+      Formula: ⌈ replWrite / (diskWrite × util) ⌉ = ⌈ ${fmtMBs(replW)} / (${maxDW} MB/s × ${Math.round(util*100)}%) ⌉ = ${bDisk}
+
+    Storage-bound              : ${bStor} brokers
+      Formula: ⌈ localDisk / (maxStor × util) ⌉ = ⌈ ${fmtTB(localDisk)} / (${maxStor} TB × ${Math.round(util*100)}%) ⌉ = ${bStor}
+
+    Min RF                     : ${bRF} brokers
+      Minimum ${RF} brokers required for RF=${RF}
+
+    >> Recommended (single DC) : ${brokers} brokers
+       Formula: max(${bNet}, ${bDisk}, ${bStor}, ${bRF}) = ${brokers}
+       Limiting factor: ${lim}
+
+  b) Per-broker hardware:
+
+    CPU                        : ${cpuB} cores
+      Peak ingress tier ${fmtMBs(inPeak)} → ${cpuB} cores (compression + SSL/TLS overhead)
+    RAM                        : ${ramB} GB
+      ${heap} GB JVM heap + ${ramB-heap} GB OS page cache
+    JVM Heap (max)             : ${heap} GB
+    Disk / broker              : ${diskB.toFixed(1)} TB
+      Formula: localDisk / brokers = ${fmtTB(localDisk)} / ${brokers} = ${diskB.toFixed(1)} TB
+    Disk layout                : ${dType}${jbod>1?` (${jbod} disks × ${dwSingle} MB/s = ${maxDW} MB/s aggregate)`:''}
+    Network                    : ${nicR}
+
+  c) KRaft controllers:
+
+    Controller count           : ${ctrlN} nodes
+      ${brokers} brokers → ${ctrlN} controllers. ${ctrlN===3?'3-node quorum tolerates 1 failure.':'5-node quorum tolerates 2 failures.'}
+    CPU / controller           : ${ctrlCpu} cores
+    RAM / controller           : ${ctrlRam} GB
+    Disk / controller          : ${ctrlDisk}
+`;
+
+  if(srOn){
+    rpt+=`
+5. SCHEMA REGISTRY SIZING
+${'─'.repeat(60)}
+  Status                     : Enabled
+  Schemas                    : ${fmtNum(srSchemas)}
+  Lookups / sec              : ${fmtNum(srLookups)}
+  HA instances               : ${srHA}
+
+  Heap / instance            : ${srHeapMB} MB
+    Formula: max(256, ⌈schemas × 0.5⌉) = max(256, ⌈${srSchemas} × 0.5⌉) = ${srHeapMB} MB
+  CPU / instance             : ${srCpuPerInst} cores
+    Formula: max(1, ⌈lookups / 10000⌉) = max(1, ⌈${fmtNum(srLookups)} / 10000⌉) = ${srCpuPerInst}
+  RAM / instance             : ${srRamPerInst} GB
+    Formula: max(1, ⌈heapMB / 1024⌉ + 1) = max(1, ⌈${srHeapMB} / 1024⌉ + 1) = ${srRamPerInst} GB
+  Disk / instance            : ${srDisk}
+
+  Total CPU (all instances)  : ${srTotalCpu} cores  (${srCpuPerInst} × ${srHA})
+  Total RAM (all instances)  : ${srTotalRam} GB  (${srRamPerInst} × ${srHA})
+`;
+  }
+
+  if(rpOn){
+    rpt+=`
+${srOn?'6':'5'}. REST PROXY SIZING
+${'─'.repeat(60)}
+  Status                     : Enabled
+  Requests / sec             : ${fmtNum(rpReqs)}
+  Avg payload                : ${rpPayload} bytes
+  Throughput                 : ${fmtMBs(rpThroughputMB)}
+  Instances                  : ${rpInst}
+
+  CPU / instance             : ${rpCpuPerInst} cores
+    Formula: max(2, ⌈requests / (instances × 2500)⌉) = max(2, ⌈${fmtNum(rpReqs)} / (${rpInst} × 2500)⌉) = ${rpCpuPerInst}
+  RAM / instance             : ${rpRamPerInst} GB
+    Formula: max(2, ⌈throughput_MB/inst / 50⌉ + 2) = max(2, ⌈${fmtMBs(rpThroughputMB/rpInst)} / 50⌉ + 2) = ${rpRamPerInst} GB
+
+  Total CPU (all instances)  : ${rpTotalCpu} cores  (${rpCpuPerInst} × ${rpInst})
+  Total RAM (all instances)  : ${rpTotalRam} GB  (${rpRamPerInst} × ${rpInst})
+`;
+  }
+
+  const nextSec=(srOn&&rpOn)?7:(srOn||rpOn)?6:5;
+  rpt+=`
+${nextSec}. TOPOLOGY: ${topoLabel.toUpperCase()}
+${'─'.repeat(60)}`;
+
+  if(isM){
+    rpt+=`
+  Brokers per DC             : ${multiBPerDC}
+    Each DC runs a fully independent Kafka cluster
+  Total brokers (all DCs)    : ${multiBTotal}
+    Formula: ${multiBPerDC} × ${DC} DCs = ${multiBTotal}
+  KRaft controllers / DC     : ${ctrlN}
+${mm2>0?`  MirrorMaker 2 / DC        : ${mm2} instances
+    Formula: ⌈cross-DC throughput / 150 MB/s⌉ = ⌈${fmtMBs(xdc)} / 150⌉ = ${mm2}
+    Spec: ${mm2Cpu} CPU / ${mm2Ram} GB RAM per instance
+`:''}  Data consistency           : Eventual — separate clusters, async replication
+  RPO                        : > 0 (depends on replication lag)
+${DC>1?`  Inter-DC bandwidth        : ${dcGbps} Gbps / link
+    Formula: ${fmtMBs(xdcBw)} ≈ ${dcGbps} Gbps per inter-DC link
+`:''}`;
+  }else{
+    rpt+=`
+  Total brokers (all DCs)    : ${stretchTotal}
+    Same as single-DC broker count: ${brokers}. RF distributes replicas via broker.rack.
+${DC>1?`  Brokers per DC            : ~${stretchPerDC}
+    Formula: ⌈${stretchTotal} / ${DC} DCs⌉ = ${stretchPerDC}
+`:''}  KRaft controllers (total)  : ${DC>1?stretchCtrl:ctrlN}${DC>1?`
+    ${ctrlN} base, adjusted to odd number across ${DC} DCs = ${stretchCtrl}. ~${stretchCtrlPerDC} per DC.`:''}
+${DC>1?`  Produce latency overhead  : +${dcLat}ms (cross-DC RTT on acks=all)
+    Every produce waits for min.isr=${isr} replicas across DCs.
+`:''}  Data consistency           : Strong — single cluster, no divergence
+  RPO                        : 0 (zero data loss with acks=all)
+${DC>1?`  Inter-DC network          : ${fmtMBs(replW/DC)} (replication traffic built into RF)
+`:''}`;
+  }
+
+  rpt+=`
+${nextSec+1}. PARTITIONS
+${'─'.repeat(60)}
+  Peak ingress               : ${fmtMBs(inPeak)}
+  Target throughput / part.  : ${30} MB/s
+  Min partitions (throughput): ${minP}
+    Formula: ⌈peak / target⌉ = ⌈${fmtMBs(inPeak)} / 30 MB/s⌉ = ${minP}
+  Recommended / topic        : ${recP}
+    Formula: max(6, ${minP}) = ${recP} (at least 6 for consumer parallelism)
+  Max per broker             : ${fmtNum(maxPB)}
+  Max cluster-wide           : ${fmtNum(maxC)}
+    Formula: ${brokers} brokers × ${fmtNum(maxPB)} = ${fmtNum(maxC)}
+
+${nextSec+2}. INFRASTRUCTURE TOTALS
+${'─'.repeat(60)}
+  a) Per Datacenter:
+
+    Kafka Brokers              : ${sBDC}
+      Spec: ${cpuB} vCPU / ${ramB} GB RAM / ${diskB.toFixed(1)} TB ${dType} / ${nicR} each
+    KRaft Controllers          : ${ctrlPerDC}
+      Spec: ${ctrlCpu} vCPU / ${ctrlRam} GB RAM / ${ctrlDisk} each
+${sMM>0?`    MirrorMaker 2             : ${sMM} instances
+      Spec: ${mm2Cpu} vCPU / ${mm2Ram} GB RAM each
+`:''}${srOn?`    Schema Registry            : ${srHA} instances
+      Spec: ${srCpuPerInst} vCPU / ${srRamPerInst} GB RAM each
+`:''}${rpOn?`    REST Proxy                 : ${rpInst} instances
+      Spec: ${rpCpuPerInst} vCPU / ${rpRamPerInst} GB RAM each
+`:''}
+    Total CPU / DC             : ${fmtNum(cpuDC)} cores
+      Formula: (${sBDC} × ${cpuB}) + (${ctrlPerDC} × ${ctrlCpu})${sMM>0?' + ('+sMM+' × '+mm2Cpu+')':''}${srOn?' + (SR: '+srTotalCpu+')':''}${rpOn?' + (RP: '+rpTotalCpu+')':''} = ${fmtNum(cpuDC)}
+    Total RAM / DC             : ${fmtNum(ramDC)} GB
+      Formula: (${sBDC} × ${ramB}) + (${ctrlPerDC} × ${ctrlRam})${sMM>0?' + ('+sMM+' × '+mm2Ram+')':''}${srOn?' + (SR: '+srTotalRam+')':''}${rpOn?' + (RP: '+rpTotalRam+')':''} = ${fmtNum(ramDC)} GB
+    Local disk / DC            : ${fmtTB(localDisk)}
+      ${tiered?'Hot tier only: '+hotH+'h of data with RF='+RF:'Full '+T+'d retention with RF='+RF}
+${tiered?`    Object storage / DC       : ${fmtTB(coldT)}
+      Formula: total ${fmtTB(totH)} − hot ${fmtTB(hotT)} = ${fmtTB(coldT)}
+`:''}
+  b) All Datacenters (${DC} DC${DC>1?'s':''}):
+
+    Total brokers              : ${fmtNum(sBT)}${DC>1?`
+      Formula: ${sBDC} per DC × ${DC} DCs = ${sBT}`:`  (single DC)`}
+    Total CPU                  : ${fmtNum(cpuDC*DC)} cores
+      Formula: ${fmtNum(cpuDC)} per DC × ${DC} = ${fmtNum(cpuDC*DC)}
+    Total RAM                  : ${fmtNum(ramDC*DC)} GB
+      Formula: ${fmtNum(ramDC)} GB per DC × ${DC} = ${fmtNum(ramDC*DC)} GB
+    Total local disk           : ${fmtTB(localDisk*DC)}
+      Formula: ${fmtTB(localDisk)} per DC × ${DC} = ${fmtTB(localDisk*DC)}
+${DC>1&&isM?`    Inter-DC bandwidth       : ${dcGbps} Gbps / link
+      Formula: ${fmtMBs(xdcBw)} ≈ ${dcGbps} Gbps per inter-DC link
+`:''}
+${'═'.repeat(60)}
+END OF REPORT
+`;
+
+  document.getElementById('sizing-report-text').textContent=rpt;
 
   renderMon();
   renderScenarios();
