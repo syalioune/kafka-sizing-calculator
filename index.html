@@ -311,7 +311,7 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
       <div class="form-group"><label class="form-label">Max Storage / Broker <span class="tip" data-tip="Total practical storage per broker across all disks. Keep manageable for rebalancing time.">?</span></label><input type="number" class="form-input" id="maxStorage" value="15" oninput="recalc()"><div class="form-unit">TB total across all disks</div></div>
       <div class="form-group"><label class="form-label">NIC Bandwidth <span class="tip" data-tip="Network interface capacity. Pick a preset or type a custom value. 10G ≈ 1,250 MB/s. 25G ≈ 3,125 MB/s.">?</span></label>
         <div class="form-row" style="gap:8px">
-          <select class="form-select" id="nicPreset" onchange="applyNicPreset()" style="flex:1.2"><option value="1250">10 Gbps</option><option value="3125" selected>25 Gbps</option><option value="6250">2×25 Gbps bonded</option><option value="">Custom…</option></select>
+          <select class="form-select" id="nicPreset" onchange="applyNicPreset()" style="flex:1.2"><option value="1250">10 Gbps</option><option value="3125" selected>25 Gbps</option><option value="6250">2×25 Gbps bonded</option><option value="12500">100 Gbps</option><option value="25000">2×100 Gbps bonded</option><option value="">Custom…</option></select>
           <input type="number" class="form-input" id="nic" value="3125" oninput="syncNicPreset();recalc()" style="flex:0.8">
         </div>
         <div class="form-unit">MB/s (editable — preset or custom)</div></div>
@@ -1275,7 +1275,7 @@ function recalc(){
   const heap=ramB<=32?6:ramB<=64?8:ramB<=128?12:16;
   const diskB=brokers>0?localDisk/brokers:0;
   const dType=jbod>1?jbod+'× NVMe JBOD':(inPeak<10?'SSD':inPeak<500?'NVMe':'NVMe JBOD');
-  const nicR=inPeak<250?'10 Gbps':inPeak<2500?'25 Gbps':'2×25 Gbps';
+  const nicR=inPeak<250?'10 Gbps':inPeak<2500?'25 Gbps':inPeak<6000?'2×25 Gbps':inPeak<12000?'100 Gbps':'2×100 Gbps';
 
   document.getElementById('broker-hardware').innerHTML=
     rr('CPU',cpuB+' cores','',`Based on peak ingress tier: ${fmtMBs(inPeak)} → ${cpuB} cores. Accounts for compression, SSL/TLS overhead.`)+
