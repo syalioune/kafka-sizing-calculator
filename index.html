@@ -283,8 +283,12 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
       <div class="form-group"><label class="form-label">Event Rate <span class="tip" data-tip="Sustained events/sec at steady state. Measure at peak business hours, not daily average.">?</span></label><input type="number" class="form-input" id="eventRate" value="100000" oninput="recalc()"><div class="form-unit">events / second</div></div>
       <div class="form-group"><label class="form-label">Avg Event Size <span class="tip" data-tip="Average serialized message size (key + value + headers). Most sensitive variable — a 2× error doubles all infra.">?</span></label><input type="number" class="form-input" id="eventSize" value="1024" oninput="recalc()"><div class="form-unit">bytes</div></div>
       <div class="form-group"><label class="form-label">Peak Multiplier <span class="tip" data-tip="Burst-to-steady ratio. Telecom/financial: 3–5×. Web/SaaS: 2–3×.">?</span></label><input type="number" class="form-input" id="peakMultiplier" value="3" step="0.5" oninput="recalc()"><div class="form-unit">× steady state</div></div>
-      <div class="form-group"><label class="form-label">Compression <span class="tip" data-tip="Producer codec. LZ4 ≈ 4:1 (recommended). Snappy ≈ 3:1. ZSTD ≈ 5:1 but more CPU.">?</span></label>
-        <select class="form-select" id="compression" onchange="recalc()"><option value="1">None (1:1)</option><option value="3">Snappy (~3:1)</option><option value="4" selected>LZ4 (~4:1)</option><option value="5">ZSTD (~5:1)</option></select></div>
+      <div class="form-group"><label class="form-label">Compression <span class="tip" data-tip="Producer codec. LZ4 ≈ 4:1 (recommended). Snappy ≈ 3:1. ZSTD ≈ 5:1 but more CPU. Select Custom to enter your own measured ratio.">?</span></label>
+        <div class="form-row" style="gap:8px">
+          <select class="form-select" id="compressionPreset" onchange="applyCompressionPreset()" style="flex:1.2"><option value="1">None (1:1)</option><option value="3">Snappy (~3:1)</option><option value="4" selected>LZ4 (~4:1)</option><option value="5">ZSTD (~5:1)</option><option value="">Custom…</option></select>
+          <input type="number" class="form-input" id="compression" value="4" min="1" max="100" step="0.1" oninput="syncCompressionPreset();recalc()" style="flex:0.8">
+        </div>
+        <div class="form-unit">Ratio :1 — typical starting assumptions, verify with representative payload samples</div></div>
       <div class="ref-links"><a class="doc-link" href="https://kafka.apache.org/documentation/#producerconfigs_compression.type" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> compression.type</a></div>
     </div>
     <div class="card">
@@ -295,6 +299,7 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
       </div>
       <div class="form-group"><label class="form-label">Retention Period <span class="tip" data-tip="How long data stays on local (hot) storage. Use tiered storage for long retention.">?</span></label><input type="number" class="form-input" id="retention" value="7" oninput="recalc()"><div class="form-unit">days</div></div>
       <div class="form-group"><label class="form-label">Consumer Groups <span class="tip" data-tip="Independent consumer groups reading the data. Each multiplies read I/O.">?</span></label><input type="number" class="form-input" id="consumers" value="3" oninput="recalc()"><div class="form-unit">independent groups</div></div>
+      <div class="form-group"><label class="form-label">Storage Headroom <span class="tip" data-tip="Default planning headroom multiplier for segment overhead, compaction, and index files. Varies by topic config, compaction usage, segment size, and retention policy. In compacted topics 1.35× can be too low; in append-only topics it can be conservative.">?</span></label><input type="number" class="form-input" id="storageHeadroom" value="1.35" step="0.05" min="1" max="2" oninput="recalc()"><div class="form-unit">× (default 1.35 — segment overhead, compaction, indexes)</div></div>
       <div class="ref-links">
         <a class="doc-link" href="https://kafka.apache.org/documentation/#replication" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> Replication</a>
         <a class="doc-link" href="https://kafka.apache.org/documentation/#topicconfigs_min.insync.replicas" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> min.insync.replicas</a>
@@ -333,7 +338,7 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
   <div class="section-title">Throughput Analysis <span class="line"></span></div>
   <div class="grid-3" id="throughput-metrics"></div>
   <div class="card"><div class="card-header"><div class="card-icon blue">📊</div><div><div class="card-title">Throughput Breakdown</div><div class="card-subtitle">All rates at peak (steady × multiplier)</div></div></div><div id="throughput-details"></div>
-    <div class="formula-block">Total Broker I/O = R × S × P × (RF + C)  — R=rate, S=size, P=peak, RF=replication, C=consumers</div>
+    <div class="formula-block">Total Network I/O = (R × S × P / CR) × (RF + C)  — all wire traffic is compressed batches<br>Total Disk Writes = (R × S × P / CR) × RF  — leader append + follower copies</div>
     <div class="ref-links"><a class="doc-link" href="https://kafka.apache.org/documentation/#design_persistence" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> Persistence design</a></div></div>
 </div>
 
@@ -342,7 +347,7 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
   <div class="section-title">Storage Sizing <span class="line"></span></div>
   <div class="grid-3" id="storage-metrics"></div>
   <div class="card"><div class="card-header"><div class="card-icon purple">💾</div><div><div class="card-title">Storage Breakdown</div></div></div><div id="storage-details"></div>
-    <div class="formula-block">Total = R × S × T(sec) × RF / CR × 1.35  |  Hot = R × S × T_hot(sec) × RF / CR × 1.35</div></div>
+    <div class="formula-block">Total = R × S × T(sec) × RF / CR × headroom  |  Hot = R × S × T_hot(sec) × RF / CR × headroom  |  headroom default 1.35</div></div>
 </div>
 
 <!-- ═══ BROKERS ═══ -->
@@ -350,7 +355,7 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
   <div class="section-title">Broker & Controller Sizing <span class="line"></span></div>
   <div class="grid-2">
     <div class="card"><div class="card-header"><div class="card-icon blue">🖥️</div><div><div class="card-title">Broker Count by Constraint</div><div class="card-subtitle">Most constraining resource determines count</div></div></div><div id="broker-constraints"></div>
-      <div class="formula-block">Brokers = max(network, disk_write, storage, RF) / target_utilization</div>
+      <div class="formula-block">Brokers = max( ⌈Net/Cap_net⌉, ⌈Disk/Cap_disk⌉, ⌈Storage/Cap_storage⌉, RF )  — each Cap_* is already utilization-adjusted</div>
       <div class="ref-links"><a class="doc-link" href="https://kafka.apache.org/documentation/#brokerconfigs_log.dirs" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> log.dirs (JBOD)</a></div></div>
     <div class="card"><div class="card-header"><div class="card-icon teal">⚙️</div><div><div class="card-title">Recommended Hardware / Broker</div></div></div><div id="broker-hardware"></div></div>
   </div>
@@ -401,7 +406,7 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
     <div class="card">
       <div class="card-header"><div class="card-icon orange">⚙️</div><div><div class="card-title">REST Proxy Sizing Results</div></div></div>
       <div id="rp-sizing"></div>
-      <div class="formula-block">CPU/inst = max(2, ⌈requests / (instances × 2500)⌉) | RAM/inst = max(2, ⌈throughput_MB / 50⌉) GB</div>
+      <div class="formula-block">CPU/inst = max(2, ⌈requests / (instances × 2500)⌉) | RAM/inst = max(2, ⌈throughput_MB/inst / 50⌉ + 2) GB</div>
       <div class="ref-links"><a class="doc-link" href="https://docs.confluent.io/platform/current/kafka-rest/index.html" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> REST Proxy docs</a></div>
     </div>
   </div>
@@ -425,7 +430,7 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
     <div class="arch-diagram" id="stretch-diagram"></div>
     <div class="mesh-link" id="stretch-mesh" style="display:none"></div>
     <div class="info-box stretch-info">
-      <strong>Stretch Cluster:</strong> A single Kafka cluster where <code>broker.rack</code> distributes replicas across DCs. Every produce with <code>acks=all</code> waits for cross-DC acknowledgment. This guarantees <strong>RPO=0</strong> (zero data loss) and <strong>strong data consistency</strong> — all consumers in every DC see the exact same data, with no divergence or conflict resolution needed.
+      <strong>Stretch Cluster:</strong> A single Kafka cluster where <code>broker.rack</code> distributes replicas across DCs. Every produce with <code>acks=all</code> waits for cross-DC acknowledgment. Can achieve <strong>effectively zero data loss</strong> for acknowledged writes when producers use <code>acks=all</code>, replicas are distributed across DCs, and <code>min.insync.replicas</code> is configured appropriately. Provides a <strong>single authoritative log</strong> with strong consistency semantics for acknowledged records — no divergence or conflict resolution needed.
       <br><br><strong>Latency tradeoff:</strong> produce latency increases by the inter-DC RTT. This is often acceptable for event-driven architectures, batch consumers, and workloads that prioritize correctness over low-latency produce. Tuning <code>linger.ms</code> and batch sizes can amortize the overhead.
       <br><br><a href="https://kafka.apache.org/documentation/#brokerconfigs_broker.rack" target="_blank">📄 broker.rack</a> · <a href="https://kafka.apache.org/documentation/#topicconfigs_min.insync.replicas" target="_blank">📄 min.insync.replicas</a>
     </div>
@@ -450,8 +455,15 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 <!-- ═══ PARTITIONS ═══ -->
 <div id="tab-partitions" class="tab-content"><div id="banner-partitions" class="input-banner"></div>
   <div class="section-title">Partition Sizing <span class="line"></span></div>
-  <div class="card"><div class="card-header"><div class="card-icon teal">📦</div><div><div class="card-title">Partition Guidelines</div></div></div><div id="partition-details"></div>
-    <div class="info-box warn"><strong>⚠ Partition count is hard to change later.</strong> Increasing partitions breaks key-based ordering. Decreasing requires topic recreation. Size for 2–3× current throughput.</div>
+  <div class="card">
+    <div class="card-header"><div class="card-icon teal">📦</div><div><div class="card-title">Per-Partition Throughput Assumptions</div><div class="card-subtitle">Measured or assumed per-partition ceilings — defaults are starting points</div></div></div>
+    <div class="form-row" style="max-width:500px">
+      <div class="form-group"><label class="form-label">Target Produce / Partition <span class="tip" data-tip="Max sustained produce throughput per partition. Depends on batching, compression, acks, replication factor, and hardware. 30 MB/s is a common starting point — verify with representative benchmarks.">?</span></label><input type="number" class="form-input" id="partProduce" value="30" min="1" oninput="recalc()"><div class="form-unit">MB/s (default 30)</div></div>
+      <div class="form-group"><label class="form-label">Target Consume / Partition <span class="tip" data-tip="Max sustained consume throughput per partition. Often similar to produce, but can differ with heavy consumer-side processing or fan-out patterns.">?</span></label><input type="number" class="form-input" id="partConsume" value="30" min="1" oninput="recalc()"><div class="form-unit">MB/s (default 30)</div></div>
+    </div>
+  </div>
+  <div class="card"><div class="card-header"><div class="card-icon teal">📊</div><div><div class="card-title">Partition Guidelines</div></div></div><div id="partition-details"></div>
+    <div class="info-box warn"><strong>⚠ Partition count is hard to change later.</strong> Increasing partitions can change key-to-partition mapping, so ordering for a given key may no longer align with historical records. Decreasing requires topic recreation. Size for 2–3× current throughput.</div>
     <div class="ref-links"><a class="doc-link" href="https://kafka.apache.org/documentation/#topicconfigs" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> Topic configs</a></div></div>
 </div>
 
@@ -588,20 +600,28 @@ function storageBar(hotTB,coldTB,tiered){
 
 function dcName(i){const el=document.getElementById('dcName'+i);return el&&el.value.trim()?el.value.trim():'DC-'+(i+1);}
 
-function banner(R,S,P,RF,isr,T,CR,C,util,jbod,tiered){
+function banner(o){
   const cn={'1':'None','3':'Snappy','4':'LZ4','5':'ZSTD'};
+  const crLabel=cn[String(o.CR)]||(o.CR+':1');
+  const sep='<span class="ib-sep">·</span>';
+  const iv=(v,l)=>`<span><span class="ib-val">${v}</span> ${l}</span>`;
   return `<span class="ib-label">Inputs:</span>
-    <span><span class="ib-val">${fmtEvt(R)}</span> evt/s</span><span class="ib-sep">·</span>
-    <span><span class="ib-val">${S}</span> B</span><span class="ib-sep">·</span>
-    <span>×<span class="ib-val">${P}</span> peak</span><span class="ib-sep">·</span>
-    <span>RF=<span class="ib-val">${RF}</span></span><span class="ib-sep">·</span>
-    <span>ISR=<span class="ib-val">${isr}</span></span><span class="ib-sep">·</span>
-    <span><span class="ib-val">${T}</span>d ret.</span><span class="ib-sep">·</span>
-    <span><span class="ib-val">${cn[CR]||CR}</span></span><span class="ib-sep">·</span>
-    <span><span class="ib-val">${C}</span> cg</span><span class="ib-sep">·</span>
-    <span><span class="ib-val">${util}%</span> util</span>
-    ${jbod>1?`<span class="ib-sep">·</span><span><span class="ib-val">${jbod}×</span> JBOD</span>`:''}
-    ${tiered?`<span class="ib-sep">·</span><span class="ib-val">Tiered</span>`:''}`;
+    ${iv(fmtEvt(o.R),'evt/s')}${sep}
+    ${iv(o.S,'B')}${sep}
+    ${iv('×'+o.P,'peak')}${sep}
+    ${iv('RF='+o.RF,'')}${sep}
+    ${iv('ISR='+o.isr,'')}${sep}
+    ${iv(o.T+'d','ret.')}${sep}
+    ${iv(crLabel,'')}${sep}
+    ${iv(o.C,'cg')}${sep}
+    ${iv(o.util+'%','util')}${sep}
+    ${iv(fmtNum(o.NIC)+' MB/s','NIC')}${sep}
+    ${iv(o.dwSingle+' MB/s','disk')}${sep}
+    ${iv(o.maxStor+' TB','stor/brk')}
+    ${o.jbod>1?sep+iv(o.jbod+'×','JBOD'):''}
+    ${o.tiered?sep+iv('Tiered',o.hotH+'h hot'):''}
+    ${o.hdroom&&o.hdroom!==1.35?sep+iv('×'+o.hdroom,'headroom'):''}
+    ${o.DC>1?sep+iv(o.DC+' DCs',''):''}`;
 }
 
 function exportDiagram(diagId,fmt){
@@ -897,6 +917,17 @@ function syncNicPreset(){
   const match=[...sel.options].find(o=>o.value===val);
   sel.value=match?val:'';
 }
+function applyCompressionPreset(){
+  const sel=document.getElementById('compressionPreset');
+  if(sel.value){document.getElementById('compression').value=sel.value;recalc();}
+  else{document.getElementById('compression').focus();}
+}
+function syncCompressionPreset(){
+  const val=document.getElementById('compression').value;
+  const sel=document.getElementById('compressionPreset');
+  const match=[...sel.options].find(o=>o.value===val);
+  sel.value=match?val:'';
+}
 
 // ═══ Configuration Save / Load (unsigned JWT) ═══
 function b64url(str){return btoa(str).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
@@ -905,14 +936,15 @@ function b64urlDecode(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%
 // List of all sizing calculator input IDs and their types
 const configFields=[
   {id:'eventRate',t:'n'},{id:'eventSize',t:'n'},{id:'peakMultiplier',t:'n'},
-  {id:'compression',t:'s'},{id:'rf',t:'n'},{id:'minIsr',t:'n'},
+  {id:'compression',t:'n'},{id:'rf',t:'n'},{id:'minIsr',t:'n'},
   {id:'retention',t:'n'},{id:'consumers',t:'n'},
   {id:'maxDiskWrite',t:'n'},{id:'jbodCount',t:'n'},{id:'maxStorage',t:'n'},
   {id:'nic',t:'n'},{id:'utilization',t:'n'},
-  {id:'tieredStorage',t:'s'},{id:'hotTierHours',t:'n'},
+  {id:'storageHeadroom',t:'n'},{id:'tieredStorage',t:'s'},{id:'hotTierHours',t:'n'},
   {id:'dcCount',t:'s'},{id:'interDcLatency',t:'n'},
   {id:'srEnabled',t:'s'},{id:'srSchemas',t:'n'},{id:'srLookups',t:'n'},{id:'srHA',t:'s'},
   {id:'rpEnabled',t:'s'},{id:'rpRequests',t:'n'},{id:'rpPayload',t:'n'},{id:'rpInstances',t:'n'},
+  {id:'partProduce',t:'n'},{id:'partConsume',t:'n'},
 ];
 
 function saveConfig(){
@@ -972,8 +1004,9 @@ function loadConfig(){
       }
     });
 
-    // Sync NIC preset
+    // Sync presets
     syncNicPreset();
+    syncCompressionPreset();
 
     // Restore DC count first (triggers dcName input generation on recalc)
     if(payload.dcCount) document.getElementById('dcCount').value=payload.dcCount;
@@ -1010,17 +1043,19 @@ function resetConfig(){
   window.history.replaceState(null,'',url.toString());
 
   // Reset all fields to defaults
-  const defaults={eventRate:100000,eventSize:1024,peakMultiplier:3,compression:'4',rf:3,minIsr:2,
-    retention:7,consumers:3,maxDiskWrite:500,jbodCount:1,maxStorage:15,nic:3125,utilization:50,
+  const defaults={eventRate:100000,eventSize:1024,peakMultiplier:3,compression:4,rf:3,minIsr:2,
+    retention:7,consumers:3,storageHeadroom:1.35,maxDiskWrite:500,jbodCount:1,maxStorage:15,nic:3125,utilization:50,
     tieredStorage:'1',hotTierHours:24,dcCount:'2',interDcLatency:5,
     srEnabled:'1',srSchemas:200,srLookups:5000,srHA:'2',
-    rpEnabled:'1',rpRequests:10000,rpPayload:2048,rpInstances:2};
+    rpEnabled:'1',rpRequests:10000,rpPayload:2048,rpInstances:2,
+    partProduce:30,partConsume:30};
   Object.entries(defaults).forEach(([id,val])=>{
     const el=document.getElementById(id);
     if(el) el.value=val;
   });
   document.getElementById('configName').value='';
   syncNicPreset();
+  syncCompressionPreset();
   topology='stretch';
   setTopology('stretch');
   recalc();
@@ -1185,6 +1220,7 @@ function recalc(){
   const dwSingle=v('maxDiskWrite'),jbod=Math.max(1,Math.round(v('jbodCount')));
   const maxDW=dwSingle*jbod;
   const maxStor=v('maxStorage'),NIC=v('nic'),dcLat=v('interDcLatency');
+  const headroom=Math.max(1,v('storageHeadroom')||1.35);
 
   document.getElementById('hotTierGroup').style.display=tiered?'block':'none';
   document.getElementById('interDcLatencyGroup').style.display=DC>1?'block':'none';
@@ -1208,57 +1244,73 @@ function recalc(){
   document.getElementById('srConfigGroup').style.display=srOn?'block':'none';
   document.getElementById('rpConfigGroup').style.display=rpOn?'block':'none';
 
-  const b=banner(R,S,P,RF,isr,T,CR,C,Math.round(util*100),jbod,tiered);
+  const b=banner({R,S,P,RF,isr,T,CR,C,util:Math.round(util*100),NIC,dwSingle,maxStor,jbod,tiered,hotH:hotH,hdroom:headroom,DC});
   ['throughput','storage','brokers','topology','partitions','schema-registry','rest-proxy','summary'].forEach(t=>{const e=document.getElementById('banner-'+t);if(e)e.innerHTML=b;});
 
-  // Throughput
+  // Throughput — Kafka stores and replicates compressed batches on the wire
   const inSteady=R*S/1048576, inPeak=inSteady*P, wirePeak=inPeak/CR;
-  const replW=inPeak*RF, conEgr=inPeak*C, totalIO=inPeak*(RF+C);
-  const xdc=DC>1?wirePeak:0, xdcBw=xdc*2;
+  const diskWriteTotal=wirePeak*RF;           // total compressed bytes written to all broker disks
+  const followerRepl=wirePeak*(RF-1);         // follower replication network traffic (leader append is local)
+  const conEgr=wirePeak*C;                    // consumer egress (compressed batches)
+  const totalNetIO=wirePeak*(RF+C);           // total cluster network I/O (ingress + follower repl + consumer egress)
+  const xdcOut=DC>1?wirePeak:0;               // per-remote-DC outbound replication
+  const xdcBidir=xdcOut*2;                    // bidirectional aggregate on a full-duplex link
+  const xdcTotalEgress=DC>1?wirePeak*(DC-1):0; // total egress from one DC to all remotes
 
   document.getElementById('throughput-metrics').innerHTML=
-    mc(fmtMBs(inPeak),'Peak Ingress',fmtMBs(inSteady)+' steady','blue')+
-    mc(fmtMBs(replW),'Replication Write','RF='+RF+(jbod>1?' · '+jbod+'× JBOD':''),'orange')+
-    mc(fmtMBs(totalIO),'Total Broker I/O','RF='+RF+', C='+C,'teal');
+    mc(fmtMBs(wirePeak),'Peak Wire Ingress',fmtMBs(inPeak)+' logical','blue')+
+    mc(fmtMBs(diskWriteTotal),'Total Disk Writes','RF='+RF+', compressed'+(jbod>1?' · '+jbod+'× JBOD':''),'orange')+
+    mc(fmtMBs(totalNetIO),'Total Network I/O','RF='+RF+', C='+C+', compressed','teal');
   document.getElementById('throughput-details').innerHTML=
-    rr('Ingress (steady)',fmtMBs(inSteady),'',`R × S = ${fmtEvt(R)} × ${S} B = ${fmtMBs(inSteady)}`)+
-    rr('Ingress (peak)',fmtMBs(inPeak),'',`Steady × P = ${fmtMBs(inSteady)} × ${P} = ${fmtMBs(inPeak)}`)+
-    rr('Wire ingress (compressed)',fmtMBs(wirePeak),'',`Peak / CR = ${fmtMBs(inPeak)} / ${CR} = ${fmtMBs(wirePeak)}`)+
-    rr('Internal replication write',fmtMBs(replW),'warn',`Peak × RF = ${fmtMBs(inPeak)} × ${RF} = ${fmtMBs(replW)}`)+
-    rr('Consumer egress',fmtMBs(conEgr),'',`Peak × C = ${fmtMBs(inPeak)} × ${C} = ${fmtMBs(conEgr)}`)+
-    rr('Total broker I/O',fmtMBs(totalIO),'highlight',`Peak × (RF + C) = ${fmtMBs(inPeak)} × (${RF} + ${C}) = ${fmtMBs(totalIO)}`)+
-    (DC>1?rr('Cross-DC repl / remote DC',fmtMBs(xdc),'',`Wire ingress (compressed) = ${fmtMBs(wirePeak)}`):'')+
-    (DC>1?rr('Cross-DC bandwidth / remote DC',fmtMBs(xdcBw),'warn',`2 × cross-DC repl = 2 × ${fmtMBs(xdc)} = ${fmtMBs(xdcBw)}`):'');
+    rr('Ingress (steady, logical)',fmtMBs(inSteady),'',`R × S = ${fmtEvt(R)} × ${S} B = ${fmtMBs(inSteady)}`)+
+    rr('Ingress (peak, logical)',fmtMBs(inPeak),'',`Steady × P = ${fmtMBs(inSteady)} × ${P} = ${fmtMBs(inPeak)}`)+
+    rr('Producer wire ingress (compressed)',fmtMBs(wirePeak),'',`Peak / CR = ${fmtMBs(inPeak)} / ${CR} = ${fmtMBs(wirePeak)}`)+
+    rr('Follower replication (network)',fmtMBs(followerRepl),'',`Wire × (RF−1) = ${fmtMBs(wirePeak)} × ${RF-1} = ${fmtMBs(followerRepl)}`)+
+    rr('Total disk writes across cluster',fmtMBs(diskWriteTotal),'warn',`Wire × RF = ${fmtMBs(wirePeak)} × ${RF} = ${fmtMBs(diskWriteTotal)} — leader append + follower copies`)+
+    rr('Consumer egress (compressed)',fmtMBs(conEgr),'',`Wire × C = ${fmtMBs(wirePeak)} × ${C} = ${fmtMBs(conEgr)}`)+
+    rr('Total network I/O',fmtMBs(totalNetIO),'highlight',`Wire × (RF + C) = ${fmtMBs(wirePeak)} × (${RF} + ${C}) = ${fmtMBs(totalNetIO)}`)+
+    (DC>1?rr('Per-link outbound (per remote DC)',fmtMBs(xdcOut),'',`Wire ingress replicated to each remote DC = ${fmtMBs(wirePeak)}`):'')+
+    (DC>1?rr('Per-link bidirectional aggregate',fmtMBs(xdcBidir),'',`2 × outbound = 2 × ${fmtMBs(xdcOut)} = ${fmtMBs(xdcBidir)} (full-duplex link)`):'') +
+    (DC>1&&DC>2?rr('Total outbound per DC',fmtMBs(xdcTotalEgress),'warn',`Outbound × ${DC-1} remote DCs = ${fmtMBs(xdcOut)} × ${DC-1} = ${fmtMBs(xdcTotalEgress)}`):'');
 
   // Storage
   const TB=1099511627776;
-  const rawR=R*S*T*86400/TB, compR=rawR/CR, totRF=compR*RF, totH=totRF*1.35;
-  const hotT=tiered?(R*S*hotH*3600*RF/CR*1.35/TB):totH;
+  const rawR=R*S*T*86400/TB, compR=rawR/CR, totRF=compR*RF, totH=totRF*headroom;
+  const hotT=tiered?(R*S*hotH*3600*RF/CR*headroom/TB):totH;
   const coldT=tiered?Math.max(0,totH-hotT):0;
   const diskSav=tiered&&totH>0?(1-hotT/totH)*100:0;
 
   document.getElementById('storage-metrics').innerHTML=
-    mc(fmtTB(totH),'Total with RF & Headroom','RF='+RF+', ×1.35','purple')+
+    mc(fmtTB(totH),'Total with RF & Headroom','RF='+RF+', ×'+headroom,'purple')+
     mc(fmtTB(hotT),tiered?'Local Disk (Hot)':'Local Disk',tiered?hotH+'h':T+'d','blue')+
     (tiered?mc(fmtTB(coldT),'Object Storage (Cold)',diskSav.toFixed(0)+'% savings','teal'):mc(fmtTB(compR),'Compressed (no RF)','CR='+CR+':1','teal'));
   document.getElementById('storage-details').innerHTML=
     rr('Raw retention (uncompressed)',fmtTB(rawR),'',`R × S × T × 86400 = ${fmtEvt(R)} × ${S} B × ${T}d × 86400 = ${fmtTB(rawR)}`)+
     rr('Compressed on disk',fmtTB(compR),'',`Raw / CR = ${fmtTB(rawR)} / ${CR} = ${fmtTB(compR)}`)+
     rr('With replication (RF='+RF+')',fmtTB(totRF),'',`Compressed × RF = ${fmtTB(compR)} × ${RF} = ${fmtTB(totRF)}`)+
-    rr('With headroom (×1.35)',fmtTB(totH),'highlight',`With RF × 1.35 = ${fmtTB(totRF)} × 1.35 = ${fmtTB(totH)} — accounts for segment overhead, compaction, index files`)+
-    (tiered?rr('Hot tier (local disk)',fmtTB(hotT),'',`R × S × ${hotH}h × 3600 × RF / CR × 1.35 = ${fmtTB(hotT)}`):'') +
+    rr('With headroom (×'+headroom+')',fmtTB(totH),'highlight',`With RF × ${headroom} = ${fmtTB(totRF)} × ${headroom} = ${fmtTB(totH)} — accounts for segment overhead, compaction, index files`)+
+    (tiered?rr('Hot tier (local disk)',fmtTB(hotT),'',`R × S × ${hotH}h × 3600 × RF / CR × ${headroom} = ${fmtTB(hotT)}`):'') +
     (tiered?rr('Cold tier (object storage)',fmtTB(coldT),'',`Total − Hot = ${fmtTB(totH)} − ${fmtTB(hotT)} = ${fmtTB(coldT)}`):'') +
     (tiered?rr('Local disk savings',diskSav.toFixed(0)+'%','highlight',`(1 − Hot/Total) × 100 = (1 − ${fmtTB(hotT)}/${fmtTB(totH)}) × 100 = ${diskSav.toFixed(0)}%`):'');
 
-  // Brokers
+  // Partitions — compute early so controller warning can reference recP
+  const pt=v('partProduce')||30;       // per-partition produce ceiling (MB/s)
+  const ptConsume=v('partConsume')||30; // per-partition consume ceiling (MB/s)
+  const minPProd=Math.max(1,Math.ceil(wirePeak/pt));
+  const minPCons=Math.max(1,Math.ceil(conEgr/ptConsume));
+  const minP=Math.max(minPProd,minPCons);
+  const recP=Math.max(6,minP);
+  const maxPB=4000;
+
+  // Brokers — each constraint uses utilization-adjusted capacity
   const localDisk=tiered?hotT:totH;
-  const bNet=Math.ceil(totalIO/(NIC*util));
-  const bDisk=Math.ceil(replW/(maxDW*util));
+  const bNet=Math.ceil(totalNetIO/(NIC*util));
+  const bDisk=Math.ceil(diskWriteTotal/(maxDW*util));
   const bStor=Math.ceil(localDisk/(maxStor*util));
   const bRF=RF;
   const cs=[
-    {n:'Network',v:bNet,tip:`⌈ totalIO / (NIC × util) ⌉ = ⌈ ${fmtMBs(totalIO)} / (${fmtNum(NIC)} MB/s × ${(util*100).toFixed(0)}%) ⌉ = ${bNet}`},
-    {n:'Disk Write'+(jbod>1?' ('+jbod+'× JBOD)':''),v:bDisk,tip:`⌈ replWrite / (diskWrite × util) ⌉ = ⌈ ${fmtMBs(replW)} / (${maxDW} MB/s × ${(util*100).toFixed(0)}%) ⌉ = ${bDisk}`},
+    {n:'Network',v:bNet,tip:`⌈ totalNetIO / (NIC × util) ⌉ = ⌈ ${fmtMBs(totalNetIO)} / (${fmtNum(NIC)} MB/s × ${(util*100).toFixed(0)}%) ⌉ = ${bNet}`},
+    {n:'Disk Write'+(jbod>1?' ('+jbod+'× JBOD)':''),v:bDisk,tip:`⌈ diskWrites / (diskCap × util) ⌉ = ⌈ ${fmtMBs(diskWriteTotal)} / (${maxDW} MB/s × ${(util*100).toFixed(0)}%) ⌉ = ${bDisk}`},
     {n:'Storage',v:bStor,tip:`⌈ localDisk / (maxStor × util) ⌉ = ⌈ ${fmtTB(localDisk)} / (${maxStor} TB × ${(util*100).toFixed(0)}%) ⌉ = ${bStor}`},
     {n:'Min RF',v:bRF,tip:`Minimum ${RF} brokers required for RF=${RF}`}
   ];
@@ -1294,7 +1346,8 @@ function recalc(){
     rr('Controller count',ctrlN+' nodes','',`${brokers} brokers → ${ctrlN} controllers. ${ctrlN===3?'3-node quorum tolerates 1 failure.':'5-node quorum tolerates 2 failures. Recommended for ≥50 brokers.'}`)+
     rr('CPU / controller',ctrlCpu+' cores','',`Scaled to ${brokers} brokers. Handles metadata log replication.`)+
     rr('RAM / controller',ctrlRam+' GB','',`Must hold metadata for all partitions in memory.`)+
-    rr('Disk / controller',ctrlDisk,'',`Stores metadata log. NVMe recommended for ≥50 brokers.`);
+    rr('Disk / controller',ctrlDisk,'',`Stores metadata log. NVMe recommended for ≥50 brokers.`)+
+    (recP*brokers>50000?'<div class="info-box warn" style="margin-top:12px"><strong>Note:</strong> With ~'+fmtNum(recP*brokers)+' estimated cluster-wide partitions, controller hardware may need to be stronger than the baseline recommendation above. High partition counts or frequent topic/ACL churn increase metadata load regardless of broker count.</div>':'');
 
   // ── SR/RP sizing (compute early so topology totals can use them) ──
   const srHeapMB=srOn?Math.max(256, Math.ceil(srSchemas*0.5)):0;
@@ -1317,7 +1370,7 @@ function recalc(){
   // Stretch diagram
   let sd='';
   for(let i=0;i<(DC>1?DC:1);i++){
-    if(i>0) sd+=`<div class="arrow-col"><div class="arrow-lbl" style="color:var(--stretch-color)">Sync repl<br>built into RF</div><div class="arrow-ico">⟷</div><div style="font-size:.65rem;color:var(--text-muted)">${dcLat}ms RTT</div></div>`;
+    if(i>0) sd+=`<div class="arrow-col"><div class="arrow-lbl" style="color:var(--stretch-color)">Sync repl<br>built into RF</div><div class="arrow-ico">⟷</div><div style="font-size:.65rem;color:var(--text-muted)">${dcLat}ms RTT<br>${fmtMBs(followerRepl/DC)}</div></div>`;
     const bk=i<DC-1?stretchPerDC:Math.max(1,stretchTotal-stretchPerDC*(DC-1));
     const ck=i<DC-1?stretchCtrlPerDC:Math.max(1,stretchCtrl-stretchCtrlPerDC*(DC-1));
     const replPerPart=RF>DC?Math.ceil(RF/DC):1;
@@ -1337,7 +1390,7 @@ function recalc(){
   const smEl=document.getElementById('stretch-mesh');
   if(DC>=3){
     smEl.style.display='block';
-    smEl.innerHTML=`<div class="mesh-link-line stretch-line"></div><div class="mesh-link-label stretch-lbl">Sync repl ${dcName(0)} ⟷ ${dcName(DC-1)}<br>${dcLat}ms RTT</div>`;
+    smEl.innerHTML=`<div class="mesh-link-line stretch-line"></div><div class="mesh-link-label stretch-lbl">Sync repl ${dcName(0)} ⟷ ${dcName(DC-1)}<br>${dcLat}ms RTT · ${fmtMBs(followerRepl/DC)}</div>`;
   }else{smEl.style.display='none';}
 
   document.getElementById('stretch-sizing').innerHTML=
@@ -1345,9 +1398,11 @@ function recalc(){
     (DC>1?rr('Brokers per DC','~'+stretchPerDC,'stretch-val',`⌈ ${stretchTotal} / ${DC} DCs ⌉ = ${stretchPerDC} brokers per DC`):'')+
     rr('KRaft controllers (total)',stretchCtrl,'',`${ctrlN} base (for ${brokers} brokers), adjusted to odd number across ${DC} DCs = ${stretchCtrl}. Split ~${stretchCtrlPerDC} per DC.`)+
     rr('Produce latency overhead',DC>1?'+'+dcLat+'ms (cross-DC RTT on acks=all)':'N/A','',DC>1?`Every produce waits for min.isr=${isr} replicas across DCs. Tunable via linger.ms and batch.size to amortize overhead.`:'')+
-    rr('Data consistency','Strong — single cluster, no divergence','highlight','All consumers see identical data in every DC. No conflict resolution needed.')+
-    rr('RPO','0 (zero data loss)','highlight','All writes are synchronous across DCs before ACK to producer.')+
-    rr('Inter-DC network',DC>1?fmtMBs(replW/DC)+' (replication traffic)':'N/A','',DC>1?`Replication write / DCs = ${fmtMBs(replW)} / ${DC} = ${fmtMBs(replW/DC)}. Built into RF — no separate fleet.`:'')+
+    rr('Data consistency','Strong — single cluster, no divergence','highlight','Single authoritative log. All consumers see identical data in every DC. No conflict resolution needed.')+
+    rr('RPO','~0 for acknowledged writes','highlight','Effectively zero data loss when acks=all, replicas span DCs, and min.insync.replicas is set appropriately. Depends on ISR health.')+
+    rr('Acked write availability','ISR ≥ '+isr+' (min.insync.replicas)','',`Writes succeed when ISR ≥ ${isr}. Below this threshold, producers with acks=all receive errors.`)+
+    rr('Max tolerated replica loss (acked writes)',(RF-isr)+' replica(s)','',`RF − min.insync.replicas = ${RF} − ${isr} = ${RF-isr}. Can lose ${RF-isr} replica(s) and still accept acks=all writes.`)+
+    rr('Inter-DC network',DC>1?fmtMBs(followerRepl/DC)+' per DC (replication traffic)':'N/A','',DC>1?`Follower replication / DCs = ${fmtMBs(followerRepl)} / ${DC} = ${fmtMBs(followerRepl/DC)}. Built into RF — no separate fleet.`:'')+
     (srOn?rr('Schema Registry / DC',srHA+' instances','',`${srCpuPerInst} CPU / ${srRamPerInst} GB RAM each`):'')+
     (rpOn?rr('REST Proxy / DC',rpInst+' instances','',`${rpCpuPerInst} CPU / ${rpRamPerInst} GB RAM each`):'')+
     '<div style="margin-top:16px;padding-top:16px;border-top:2px solid var(--border)">'+
@@ -1360,21 +1415,23 @@ function recalc(){
         `(${sBDC} brokers × ${cpuB}) + (${sCtrlDC} ctrl × ${ctrlCpu})${srOn?' + (SR: '+srTotalCpu+')':''}${rpOn?' + (RP: '+rpTotalCpu+')':''} = ${fmtNum(cpuS)}`)+
         rr('Total RAM / DC',fmtNum(ramS)+' GB','highlight',
         `(${sBDC} × ${ramB}) + (${sCtrlDC} × ${ctrlRam})${srOn?' + (SR: '+srTotalRam+')':''}${rpOn?' + (RP: '+rpTotalRam+')':''} = ${fmtNum(ramS)} GB`)+
-        rr('Local disk / DC',fmtTB(localDisk),'',tiered?`Hot tier: ${hotH}h of data with RF=${RF}`:`Full ${T}d retention with RF=${RF}`)+
+        rr('Local disk / DC',fmtTB(localDisk/Math.max(DC,1)),'',tiered?`Hot tier: ${hotH}h of data with RF=${RF}, split across ${DC} DC(s)`:`Full ${T}d retention with RF=${RF}, split across ${DC} DC(s)`)+
         (tiered?rr('Object storage / DC',fmtTB(coldT/Math.max(DC,1)),'',`Cold tier: ${fmtTB(coldT)} total / ${DC} DCs = ${fmtTB(coldT/Math.max(DC,1))}`):'');
     })()+
     '</div>'+
     (DC>1&&dcLat>30?'<div class="info-box warn" style="margin-top:12px"><strong>Note:</strong> At '+dcLat+'ms RTT, consider tuning linger.ms and batch.size to amortize cross-DC overhead. Throughput is maintained but per-message latency increases.</div>':'');
 
-  // Multi-cluster
+  // Multi-cluster — each DC sized for 100% failover capacity
+  // Per-DC required throughput in failover = local steady load + all failed-DC imported load
+  // For active-active N-DC full failover: per-DC capacity = 100% of global workload
   const multiBPerDC=brokers, multiBTotal=brokers*DC;
-  const mm2=DC>1?Math.max(1,Math.ceil(xdc/150)):0;
-  const mm2Cpu=xdc<500?4:8, mm2Ram=xdc<500?16:32;
-  const dcGbps=DC>1?Math.ceil(xdcBw*8/1000):0;
+  const mm2=DC>1?Math.max(1,Math.ceil(xdcOut/150)):0;
+  const mm2Cpu=xdcOut<500?4:8, mm2Ram=xdcOut<500?16:32;
+  const dcGbps=DC>1?Math.ceil(xdcBidir*8/1000):0;
 
   let md='';
   for(let i=0;i<(DC>1?DC:1);i++){
-    if(i>0) md+=`<div class="arrow-col"><div class="arrow-lbl" style="color:var(--multi-color)">Async repl<br>MM2 / CL</div><div class="arrow-ico">⟶</div><div style="font-size:.65rem;color:var(--text-muted)">${fmtMBs(xdc)}</div></div>`;
+    if(i>0) md+=`<div class="arrow-col"><div class="arrow-lbl" style="color:var(--multi-color)">Async repl<br>MM2 / CL</div><div class="arrow-ico">⟶</div><div style="font-size:.65rem;color:var(--text-muted)">${fmtMBs(xdcOut)} out</div></div>`;
     const storPerDC_m=tiered?hotT:localDisk;
     const coldPerDC_m=tiered?coldT:0;
     md+=`<div class="cluster-indep"><div class="cluster-indep-label">Independent Kafka Cluster</div><div class="dc-box multi-dc"><h4>Cluster ${dcName(i)}</h4>
@@ -1391,16 +1448,19 @@ function recalc(){
   const mmEl=document.getElementById('multi-mesh');
   if(DC>=3){
     mmEl.style.display='block';
-    mmEl.innerHTML=`<div class="mesh-link-line multi-line"></div><div class="mesh-link-label multi-lbl">Async repl ${dcName(0)} ⟷ ${dcName(DC-1)}<br>${fmtMBs(xdc)}</div>`;
+    mmEl.innerHTML=`<div class="mesh-link-line multi-line"></div><div class="mesh-link-label multi-lbl">Async repl ${dcName(0)} ⟷ ${dcName(DC-1)}<br>${fmtMBs(xdcOut)} out</div>`;
   }else{mmEl.style.display='none';}
 
   document.getElementById('multi-sizing').innerHTML=
-    rr('Brokers per DC',multiBPerDC,'multi-val',`Each DC must handle 100% of total load for failover. Same as single-DC count: ${brokers}.`)+
+    rr('Failover capacity design','100% of global workload per DC','multi-val',`Per-DC capacity target = local steady load + all failed-DC imported load = 100% of global workload. For ${DC}-DC active-active full failover.`)+
+    rr('Brokers per DC',multiBPerDC,'multi-val',`Each DC sized for 100% failover: same as single-DC count = ${brokers}.`)+
     rr('Total brokers (all DCs)',multiBTotal,'multi-val',`${multiBPerDC} × ${DC} DCs = ${multiBTotal}`)+
     rr('KRaft controllers per DC',ctrlN,'',`Independent ${ctrlN}-node quorum per cluster.`)+
-    rr('MirrorMaker 2 instances / DC',mm2,'',DC>1?`⌈ cross-DC throughput / 150 MB/s ⌉ = ⌈ ${fmtMBs(xdc)} / 150 ⌉ = ${mm2} workers`:'N/A for single DC')+
-    (mm2>0?rr('MM2 spec / instance',mm2Cpu+' CPU / '+mm2Ram+' GB RAM','',`Scaled to ${fmtMBs(xdc)} replication throughput. ${mm2Cpu} CPU for ${xdc<500?'moderate':'high'} throughput.`):'')+
-    rr('Cross-DC link',DC>1?dcGbps+' Gbps':'N/A',DC>1?'warn':'',DC>1?`2 × xdcRepl × 8 / 1000 = 2 × ${fmtMBs(xdc)} = ${fmtMBs(xdcBw)} ≈ ${dcGbps} Gbps`:'')+
+    rr('MirrorMaker 2 instances / DC',mm2,'',DC>1?`⌈ cross-DC throughput / 150 MB/s ⌉ = ⌈ ${fmtMBs(xdcOut)} / 150 ⌉ = ${mm2} workers`:'N/A for single DC')+
+    (mm2>0?rr('MM2 spec / instance',mm2Cpu+' CPU / '+mm2Ram+' GB RAM','',`Scaled to ${fmtMBs(xdcOut)} replication throughput. ${mm2Cpu} CPU for ${xdcOut<500?'moderate':'high'} throughput.`):'')+
+    rr('Per-link outbound',DC>1?fmtMBs(xdcOut):'N/A','',DC>1?`Compressed wire ingress replicated per remote DC = ${fmtMBs(xdcOut)}`:'')+
+    rr('Per-link bidirectional',DC>1?fmtMBs(xdcBidir)+' ('+dcGbps+' Gbps)':'N/A',DC>1?'warn':'',DC>1?`2 × outbound = 2 × ${fmtMBs(xdcOut)} = ${fmtMBs(xdcBidir)} ≈ ${dcGbps} Gbps`:'')+
+    (DC>2?rr('Total outbound per DC',fmtMBs(xdcTotalEgress),'warn',`Outbound × ${DC-1} remote DCs = ${fmtMBs(xdcOut)} × ${DC-1} = ${fmtMBs(xdcTotalEgress)}`):'') +
     rr('Data consistency',DC>1?'Eventual — async replication may diverge':'N/A','warn','Active-active: non-deterministic ordering, possible data conflicts. May require application-level reconciliation.')+
     rr('RPO',DC>1?'> 0 (replication lag)':'N/A','','Data in transit during DC failure is lost. Lag depends on MM2 throughput and network.')+
     rr('Produce latency','Local only — no cross-DC penalty','highlight','Writes are acknowledged by local ISR only. No inter-DC RTT on produce path.')+
@@ -1432,14 +1492,15 @@ function recalc(){
         <tr><td>Architecture</td><td class="stretch-td">Single logical cluster across ${DC} DCs</td><td class="multi-td">${DC} independent clusters</td></tr>
         <tr><td>Replication</td><td class="stretch-td">Synchronous (built into RF=${RF})</td><td class="multi-td">Asynchronous (MM2 / Cluster Linking)</td></tr>
         <tr><td>Data consistency</td><td class="stretch-td">Strong — single source of truth, no divergence</td><td class="multi-td">Eventual — may diverge, conflicts possible</td></tr>
-        <tr><td>RPO</td><td class="stretch-td">0 (zero data loss)</td><td class="multi-td">> 0 (replication lag window)</td></tr>
+        <tr><td>RPO</td><td class="stretch-td">~0 for acknowledged writes (acks=all + min.isr)</td><td class="multi-td">> 0 (replication lag window)</td></tr>
         <tr><td>Produce latency</td><td class="stretch-td">+${dcLat}ms (cross-DC RTT)</td><td class="multi-td">Local only (no penalty)</td></tr>
         <tr><td>Total brokers</td><td class="stretch-td">${stretchTotal}</td><td class="multi-td">${multiBTotal}</td></tr>
         <tr><td>Total controllers</td><td class="stretch-td">${stretchCtrl} (shared quorum)</td><td class="multi-td">${ctrlN*DC} (${ctrlN}/DC)</td></tr>
         <tr><td>Replication fleet</td><td class="stretch-td">None (built into RF)</td><td class="multi-td">${mm2} MM2 workers per DC</td></tr>
         ${srOn?`<tr><td>Schema Registry</td><td class="stretch-td">${srHA} instances / DC</td><td class="multi-td">${srHA} instances / DC</td></tr>`:''}
         ${rpOn?`<tr><td>REST Proxy</td><td class="stretch-td">${rpInst} instances / DC</td><td class="multi-td">${rpInst} instances / DC</td></tr>`:''}
-        <tr><td>Cross-DC bandwidth</td><td class="stretch-td">${fmtMBs(replW/DC)} (RF traffic)</td><td class="multi-td">${fmtMBs(xdcBw)} per remote DC</td></tr>
+        <tr><td>Cross-DC per-link outbound</td><td class="stretch-td">${fmtMBs(followerRepl/DC)} (RF traffic)</td><td class="multi-td">${fmtMBs(xdcOut)} per remote DC</td></tr>
+        <tr><td>Cross-DC per-link bidirectional</td><td class="stretch-td">${fmtMBs(followerRepl/DC*2)}</td><td class="multi-td">${fmtMBs(xdcBidir)} (${dcGbps} Gbps)</td></tr>
         ${(()=>{
           const sCtrlDC=Math.ceil(stretchCtrl/DC);
           const cpuS=stretchPerDC*cpuB+sCtrlDC*ctrlCpu+(srOn?srTotalCpu:0)+(rpOn?rpTotalCpu:0);
@@ -1448,7 +1509,7 @@ function recalc(){
           const ramM=multiBPerDC*ramB+ctrlN*ctrlRam+mm2*mm2Ram+(srOn?srTotalRam:0)+(rpOn?rpTotalRam:0);
           return `<tr><td>Total CPU / DC</td><td class="stretch-td">${fmtNum(cpuS)} cores</td><td class="multi-td">${fmtNum(cpuM)} cores</td></tr>
         <tr><td>Total RAM / DC</td><td class="stretch-td">${fmtNum(ramS)} GB</td><td class="multi-td">${fmtNum(ramM)} GB</td></tr>
-        <tr><td>Local disk / DC</td><td class="stretch-td">${fmtTB(localDisk)}</td><td class="multi-td">${fmtTB(localDisk)}</td></tr>
+        <tr><td>Local disk / DC</td><td class="stretch-td">${fmtTB(localDisk/Math.max(DC,1))}</td><td class="multi-td">${fmtTB(localDisk)}</td></tr>
         ${tiered?`<tr><td>Object storage / DC</td><td class="stretch-td">${fmtTB(coldT/Math.max(DC,1))}</td><td class="multi-td">${fmtTB(coldT)}</td></tr>`:''}`;
         })()}
         <tr><td>Ordering</td><td class="stretch-td">Global per-partition (single cluster)</td><td class="multi-td">Per-origin only in active-active</td></tr>
@@ -1485,17 +1546,19 @@ function recalc(){
     document.getElementById('rp-sizing').innerHTML=rr('Status','Disabled','','REST Proxy is not enabled. Enable it in the configuration to see sizing.');
   }
 
-  // Partitions
-  const pt=30,minP=Math.max(1,Math.ceil(inPeak/pt)),recP=Math.max(6,minP);
-  const maxPB=4000,maxC=brokers*maxPB;
+  // Partitions — rendering (computation moved above broker section)
+  const maxC=brokers*maxPB;
   document.getElementById('partition-details').innerHTML=
-    rr('Peak ingress',fmtMBs(inPeak),'',`R × S × P = ${fmtEvt(R)} × ${S} B × ${P} = ${fmtMBs(inPeak)}`)+
-    rr('Target / partition',pt+' MB/s','','Practical ceiling for a single partition with sequential I/O')+
-    rr('Min partitions (throughput)',minP,'',`⌈ peak / target ⌉ = ⌈ ${fmtMBs(inPeak)} / ${pt} MB/s ⌉ = ${minP}`)+
+    rr('Peak wire ingress (compressed)',fmtMBs(wirePeak),'',`R × S × P / CR = ${fmtEvt(R)} × ${S} B × ${P} / ${CR} = ${fmtMBs(wirePeak)}`)+
+    rr('Target produce / partition',pt+' MB/s','','Per-partition ceiling — depends on batching, compression, acks, and hardware. Configurable above.')+
+    rr('Target consume / partition',ptConsume+' MB/s','','Per-partition consume ceiling. Can differ from produce with heavy consumer processing.')+
+    rr('Min partitions (produce)',minPProd,'',`⌈ wire_ingress / p ⌉ = ⌈ ${fmtMBs(wirePeak)} / ${pt} MB/s ⌉ = ${minPProd}`)+
+    rr('Min partitions (consume)',minPCons,'',`⌈ consumer_egress / c ⌉ = ⌈ ${fmtMBs(conEgr)} / ${ptConsume} MB/s ⌉ = ${minPCons}`)+
+    rr('Min partitions (max of produce, consume)',minP,'',`max(${minPProd}, ${minPCons}) = ${minP}`)+
     rr('Recommended / high-throughput topic',recP,'highlight',`max(6, ${minP}) = ${recP}. At least 6 for consumer parallelism.`)+
     rr('Max per broker',fmtNum(maxPB),'','Keep below ~4,000 per broker for low latency. More partitions = more file handles, memory, rebalancing time.')+
     rr('Max cluster-wide',fmtNum(maxC),'',`${brokers} brokers × ${fmtNum(maxPB)} = ${fmtNum(maxC)}`)+
-    rr('KRaft limit','~2M','','KRaft handles up to ~2M partitions cluster-wide, vs ~200K with ZooKeeper.');
+    rr('KRaft limit','~2M (lab conditions)','','KRaft demonstrated at up to ~2M partitions in lab conditions (Confluent). Practical production limits are usually lower and depend on node count, metadata churn, hardware, and workload.');
 
   // Summary
   const isM=topology==='multi';
@@ -1512,28 +1575,29 @@ function recalc(){
   document.getElementById('summary-headline').innerHTML=
     mc(fmtNum(sBT),'Total Brokers',DC>1?'across '+DC+' DCs':'single DC',isM?'multi':(DC>1?'stretch':'blue'))+
     mc(fmtNum(cpuDC)+' <span class="result-unit">cores</span>','CPU per DC','','orange')+
-    mc(fmtTB(localDisk),'Local Disk / DC',tiered?'+ '+fmtTB(coldT)+' object':'','purple');
+    mc(fmtTB(isM?localDisk:localDisk/Math.max(DC,1)),'Local Disk / DC',tiered?'+ '+fmtTB(isM?coldT:coldT/Math.max(DC,1))+' object':'','purple');
 
   document.getElementById('summary-topo-label').innerHTML=tl;
   document.getElementById('summary-details').innerHTML=
     '<div style="margin-bottom:8px;font-size:.78rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;font-weight:700">Per Datacenter</div>'+
     rr('Kafka Brokers',sBDC,'',`${cpuB} CPU / ${ramB} GB RAM / ${diskB.toFixed(1)} TB ${dType} / ${nicR} each`)+
     rr('KRaft Controllers',(isM?ctrlN:Math.ceil(sCtrl/Math.max(DC,1))),'',`${ctrlCpu} CPU / ${ctrlRam} GB RAM / ${ctrlDisk} each`)+
-    (sMM>0?rr('MirrorMaker 2',sMM+' instances','',`${mm2Cpu} CPU / ${mm2Ram} GB RAM each. Handles ${fmtMBs(xdc)} cross-DC replication.`):'')+
+    (sMM>0?rr('MirrorMaker 2',sMM+' instances','',`${mm2Cpu} CPU / ${mm2Ram} GB RAM each. Handles ${fmtMBs(xdcOut)} cross-DC replication.`):'')+
     (srOn?rr('Schema Registry',srHA+' instances','',`${srCpuPerInst} CPU / ${srRamPerInst} GB RAM each. ${srSchemas} schemas cached.`):'')+
     (rpOn?rr('REST Proxy',rpInst+' instances','',`${rpCpuPerInst} CPU / ${rpRamPerInst} GB RAM each. ${fmtNum(rpReqs)} req/s.`):'')+
     rr('Total CPU / DC',fmtNum(cpuDC)+' cores','highlight',`(${sBDC} brokers × ${cpuB}) + (${isM?ctrlN:Math.ceil(sCtrl/Math.max(DC,1))} ctrl × ${ctrlCpu})${sMM>0?' + ('+sMM+' MM2 × '+mm2Cpu+')':''}${srOn?' + (SR: '+srTotalCpu+')':''}${rpOn?' + (RP: '+rpTotalCpu+')':''} = ${fmtNum(cpuDC)}`)+
     rr('Total RAM / DC',fmtNum(ramDC)+' GB','highlight',`(${sBDC} × ${ramB}) + (${isM?ctrlN:Math.ceil(sCtrl/Math.max(DC,1))} × ${ctrlRam})${sMM>0?' + ('+sMM+' × '+mm2Ram+')':''}${srOn?' + (SR: '+srTotalRam+')':''}${rpOn?' + (RP: '+rpTotalRam+')':''} = ${fmtNum(ramDC)} GB`)+
-    rr('Local disk / DC',fmtTB(localDisk),'highlight',tiered?`Hot tier only: ${hotH}h of data with RF=${RF}`:`Full ${T}d retention with RF=${RF}`)+
-    (tiered?rr('Object storage / DC',fmtTB(coldT),'',`Cold tier: total ${fmtTB(totH)} − hot ${fmtTB(hotT)} = ${fmtTB(coldT)}`):'')+
+    rr('Local disk / DC',fmtTB(isM?localDisk:localDisk/Math.max(DC,1)),'highlight',tiered?`Hot tier only: ${hotH}h of data with RF=${RF}`:`Full ${T}d retention with RF=${RF}`)+
+    (tiered?rr('Object storage / DC',fmtTB(isM?coldT:coldT/Math.max(DC,1)),'',`Cold tier: ${fmtTB(isM?coldT:coldT/Math.max(DC,1))}${!isM&&DC>1?' ('+fmtTB(coldT)+' total / '+DC+' DCs)':''}`):'') +
     '<div style="margin-top:16px;padding-top:16px;border-top:2px solid var(--border)">'+
     '<div style="margin-bottom:8px;font-size:.78rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;font-weight:700">All Datacenters</div>'+
     rr('Total brokers',fmtNum(sBT),'highlight',DC>1?`${sBDC} per DC × ${DC} DCs = ${sBT}`:`${sBT} (single DC)`)+
     rr('Total CPU',fmtNum(cpuDC*DC)+' cores','',`${fmtNum(cpuDC)} per DC × ${DC} = ${fmtNum(cpuDC*DC)}`)+
     rr('Total RAM',fmtNum(ramDC*DC)+' GB','',`${fmtNum(ramDC)} GB per DC × ${DC} = ${fmtNum(ramDC*DC)} GB`)+
-    rr('Total local disk',fmtTB(localDisk*DC),'',`${fmtTB(localDisk)} per DC × ${DC} = ${fmtTB(localDisk*DC)}`)+
-    (tiered?rr('Total object storage',fmtTB((isM?coldT:coldT/Math.max(DC,1))*DC),'',`${fmtTB(isM?coldT:coldT/Math.max(DC,1))} per DC × ${DC} = ${fmtTB((isM?coldT:coldT/Math.max(DC,1))*DC)}`):'')+
-    (DC>1&&isM?rr('Inter-DC bandwidth',dcGbps+' Gbps / link','',`${fmtMBs(xdcBw)} ≈ ${dcGbps} Gbps per inter-DC link`):'')+'</div>';
+    rr('Total local disk',fmtTB(isM?localDisk*DC:localDisk),'',isM?`${fmtTB(localDisk)} per DC × ${DC} = ${fmtTB(localDisk*DC)}`:`${fmtTB(localDisk)} (cluster total, split across ${DC} DC${DC>1?'s':''})`)+
+    (tiered?rr('Total object storage',fmtTB(isM?coldT*DC:coldT),'',isM?`${fmtTB(coldT)} per DC × ${DC} = ${fmtTB(coldT*DC)}`:`${fmtTB(coldT)} (cluster total, split across ${DC} DC${DC>1?'s':''})`):'') +
+    (DC>1&&isM?rr('Inter-DC per-link outbound',fmtMBs(xdcOut),'',`Compressed wire ingress per remote DC`):'') +
+    (DC>1&&isM?rr('Inter-DC per-link bidirectional',dcGbps+' Gbps','',`${fmtMBs(xdcBidir)} ≈ ${dcGbps} Gbps per inter-DC link`):'')+'</div>';
 
   // ── Sizing Computations Report (structured text) ──
   const cn={'1':'None','3':'Snappy','4':'LZ4','5':'ZSTD'};
@@ -1553,7 +1617,7 @@ ${'─'.repeat(60)}
   Replication factor (RF)    : ${RF}
   Min in-sync replicas (ISR) : ${isr}
   Retention period           : ${T} days
-  Compression                : ${cn[CR]||CR} (ratio ${CR}:1)
+  Compression                : ${cn[String(CR)]||'Custom'} (ratio ${CR}:1)
   Consumer groups            : ${C}
   Datacenters                : ${DC}
   Topology                   : ${topoLabel}
@@ -1575,20 +1639,25 @@ ${'─'.repeat(60)}
   Wire ingress (compressed)  : ${fmtMBs(wirePeak)}
     Formula: peak / CR = ${fmtMBs(inPeak)} / ${CR} = ${fmtMBs(wirePeak)}
 
-  Internal replication write  : ${fmtMBs(replW)}
-    Formula: peak × RF = ${fmtMBs(inPeak)} × ${RF} = ${fmtMBs(replW)}
+  Follower replication (net) : ${fmtMBs(followerRepl)}
+    Formula: wire × (RF−1) = ${fmtMBs(wirePeak)} × ${RF-1} = ${fmtMBs(followerRepl)}
 
-  Consumer egress            : ${fmtMBs(conEgr)}
-    Formula: peak × C = ${fmtMBs(inPeak)} × ${C} = ${fmtMBs(conEgr)}
+  Total disk writes (cluster): ${fmtMBs(diskWriteTotal)}
+    Formula: wire × RF = ${fmtMBs(wirePeak)} × ${RF} = ${fmtMBs(diskWriteTotal)}
 
-  Total broker I/O           : ${fmtMBs(totalIO)}
-    Formula: peak × (RF + C) = ${fmtMBs(inPeak)} × (${RF} + ${C}) = ${fmtMBs(totalIO)}
+  Consumer egress (compressed): ${fmtMBs(conEgr)}
+    Formula: wire × C = ${fmtMBs(wirePeak)} × ${C} = ${fmtMBs(conEgr)}
+
+  Total network I/O          : ${fmtMBs(totalNetIO)}
+    Formula: wire × (RF + C) = ${fmtMBs(wirePeak)} × (${RF} + ${C}) = ${fmtMBs(totalNetIO)}
 ${DC>1?`
-  Cross-DC replication       : ${fmtMBs(xdc)} per remote DC
-    Formula: wire ingress (compressed) = ${fmtMBs(wirePeak)}
-  Cross-DC bandwidth         : ${fmtMBs(xdcBw)} per remote DC
-    Formula: 2 × cross-DC repl = 2 × ${fmtMBs(xdc)} = ${fmtMBs(xdcBw)}
-`:''}
+  Per-link outbound / remote DC  : ${fmtMBs(xdcOut)}
+    Formula: wire ingress replicated to each remote DC = ${fmtMBs(wirePeak)}
+  Per-link bidirectional         : ${fmtMBs(xdcBidir)}
+    Formula: 2 × outbound = 2 × ${fmtMBs(xdcOut)} = ${fmtMBs(xdcBidir)}
+${DC>2?`  Total outbound per DC         : ${fmtMBs(xdcTotalEgress)}
+    Formula: outbound × ${DC-1} remote DCs = ${fmtMBs(xdcOut)} × ${DC-1} = ${fmtMBs(xdcTotalEgress)}
+`:''}`:''}
 3. STORAGE ANALYSIS
 ${'─'.repeat(60)}
   Raw retention (uncompressed) : ${fmtTB(rawR)}
@@ -1600,12 +1669,12 @@ ${'─'.repeat(60)}
   With replication (RF=${RF})    : ${fmtTB(totRF)}
     Formula: compressed × RF = ${fmtTB(compR)} × ${RF} = ${fmtTB(totRF)}
 
-  With headroom (×1.35)        : ${fmtTB(totH)}
-    Formula: withRF × 1.35 = ${fmtTB(totRF)} × 1.35 = ${fmtTB(totH)}
+  With headroom (×${headroom})        : ${fmtTB(totH)}
+    Formula: withRF × ${headroom} = ${fmtTB(totRF)} × ${headroom} = ${fmtTB(totH)}
     Accounts for segment overhead, compaction, index files
 ${tiered?`
   Hot tier (local disk)        : ${fmtTB(hotT)}
-    Formula: R × S × ${hotH}h × 3600 × RF / CR × 1.35 = ${fmtTB(hotT)}
+    Formula: R × S × ${hotH}h × 3600 × RF / CR × ${headroom} = ${fmtTB(hotT)}
 
   Cold tier (object storage)   : ${fmtTB(coldT)}
     Formula: total − hot = ${fmtTB(totH)} − ${fmtTB(hotT)} = ${fmtTB(coldT)}
@@ -1618,10 +1687,10 @@ ${'─'.repeat(60)}
   a) Broker count constraints:
 
     Network-bound              : ${bNet} brokers
-      Formula: ⌈ totalIO / (NIC × util) ⌉ = ⌈ ${fmtMBs(totalIO)} / (${fmtNum(NIC)} MB/s × ${Math.round(util*100)}%) ⌉ = ${bNet}
+      Formula: ⌈ totalNetIO / (NIC × util) ⌉ = ⌈ ${fmtMBs(totalNetIO)} / (${fmtNum(NIC)} MB/s × ${Math.round(util*100)}%) ⌉ = ${bNet}
 
     Disk write-bound${jbod>1?' ('+jbod+'× JBOD)':''}          : ${bDisk} brokers
-      Formula: ⌈ replWrite / (diskWrite × util) ⌉ = ⌈ ${fmtMBs(replW)} / (${maxDW} MB/s × ${Math.round(util*100)}%) ⌉ = ${bDisk}
+      Formula: ⌈ diskWrites / (diskCap × util) ⌉ = ⌈ ${fmtMBs(diskWriteTotal)} / (${maxDW} MB/s × ${Math.round(util*100)}%) ⌉ = ${bDisk}
 
     Storage-bound              : ${bStor} brokers
       Formula: ⌈ localDisk / (maxStor × util) ⌉ = ⌈ ${fmtTB(localDisk)} / (${maxStor} TB × ${Math.round(util*100)}%) ⌉ = ${bStor}
@@ -1709,13 +1778,15 @@ ${'─'.repeat(60)}`;
     Formula: ${multiBPerDC} × ${DC} DCs = ${multiBTotal}
   KRaft controllers / DC     : ${ctrlN}
 ${mm2>0?`  MirrorMaker 2 / DC        : ${mm2} instances
-    Formula: ⌈cross-DC throughput / 150 MB/s⌉ = ⌈${fmtMBs(xdc)} / 150⌉ = ${mm2}
+    Formula: ⌈cross-DC throughput / 150 MB/s⌉ = ⌈${fmtMBs(xdcOut)} / 150⌉ = ${mm2}
     Spec: ${mm2Cpu} CPU / ${mm2Ram} GB RAM per instance
 `:''}  Data consistency           : Eventual — separate clusters, async replication
   RPO                        : > 0 (depends on replication lag)
-${DC>1?`  Inter-DC bandwidth        : ${dcGbps} Gbps / link
-    Formula: ${fmtMBs(xdcBw)} ≈ ${dcGbps} Gbps per inter-DC link
-`:''}`;
+${DC>1?`  Per-link outbound          : ${fmtMBs(xdcOut)}
+  Per-link bidirectional     : ${fmtMBs(xdcBidir)} ≈ ${dcGbps} Gbps per inter-DC link
+${DC>2?`  Total outbound per DC     : ${fmtMBs(xdcTotalEgress)}
+`:''}`:''}`+`
+`;
   }else{
     rpt+=`
   Total brokers (all DCs)    : ${stretchTotal}
@@ -1727,18 +1798,22 @@ ${DC>1?`  Brokers per DC            : ~${stretchPerDC}
 ${DC>1?`  Produce latency overhead  : +${dcLat}ms (cross-DC RTT on acks=all)
     Every produce waits for min.isr=${isr} replicas across DCs.
 `:''}  Data consistency           : Strong — single cluster, no divergence
-  RPO                        : 0 (zero data loss with acks=all)
-${DC>1?`  Inter-DC network          : ${fmtMBs(replW/DC)} (replication traffic built into RF)
+  RPO                        : ~0 for acknowledged writes (acks=all + min.insync.replicas)
+${DC>1?`  Inter-DC network          : ${fmtMBs(followerRepl/DC)} per DC (replication traffic built into RF)
 `:''}`;
   }
 
   rpt+=`
 ${nextSec+1}. PARTITIONS
 ${'─'.repeat(60)}
-  Peak ingress               : ${fmtMBs(inPeak)}
-  Target throughput / part.  : ${30} MB/s
-  Min partitions (throughput): ${minP}
-    Formula: ⌈peak / target⌉ = ⌈${fmtMBs(inPeak)} / 30 MB/s⌉ = ${minP}
+  Peak wire ingress (compr.) : ${fmtMBs(wirePeak)}
+  Target produce / partition : ${pt} MB/s
+  Target consume / partition : ${ptConsume} MB/s
+  Min partitions (produce)   : ${minPProd}
+    Formula: ⌈wire_ingress / p⌉ = ⌈${fmtMBs(wirePeak)} / ${pt} MB/s⌉ = ${minPProd}
+  Min partitions (consume)   : ${minPCons}
+    Formula: ⌈consumer_egress / c⌉ = ⌈${fmtMBs(conEgr)} / ${ptConsume} MB/s⌉ = ${minPCons}
+  Min partitions (max)       : ${minP}
   Recommended / topic        : ${recP}
     Formula: max(6, ${minP}) = ${recP} (at least 6 for consumer parallelism)
   Max per broker             : ${fmtNum(maxPB)}
@@ -1764,10 +1839,10 @@ ${sMM>0?`    MirrorMaker 2             : ${sMM} instances
       Formula: (${sBDC} × ${cpuB}) + (${ctrlPerDC} × ${ctrlCpu})${sMM>0?' + ('+sMM+' × '+mm2Cpu+')':''}${srOn?' + (SR: '+srTotalCpu+')':''}${rpOn?' + (RP: '+rpTotalCpu+')':''} = ${fmtNum(cpuDC)}
     Total RAM / DC             : ${fmtNum(ramDC)} GB
       Formula: (${sBDC} × ${ramB}) + (${ctrlPerDC} × ${ctrlRam})${sMM>0?' + ('+sMM+' × '+mm2Ram+')':''}${srOn?' + (SR: '+srTotalRam+')':''}${rpOn?' + (RP: '+rpTotalRam+')':''} = ${fmtNum(ramDC)} GB
-    Local disk / DC            : ${fmtTB(localDisk)}
+    Local disk / DC            : ${fmtTB(isM?localDisk:localDisk/Math.max(DC,1))}
       ${tiered?'Hot tier only: '+hotH+'h of data with RF='+RF:'Full '+T+'d retention with RF='+RF}
-${tiered?`    Object storage / DC       : ${fmtTB(coldT)}
-      Formula: total ${fmtTB(totH)} − hot ${fmtTB(hotT)} = ${fmtTB(coldT)}
+${tiered?`    Object storage / DC       : ${fmtTB(isM?coldT:coldT/Math.max(DC,1))}
+      Formula: total ${fmtTB(totH)} − hot ${fmtTB(hotT)} = ${fmtTB(coldT)}${!isM&&DC>1?' / '+DC+' DCs = '+fmtTB(coldT/DC):''}
 `:''}
   b) All Datacenters (${DC} DC${DC>1?'s':''}):
 
@@ -1777,12 +1852,12 @@ ${tiered?`    Object storage / DC       : ${fmtTB(coldT)}
       Formula: ${fmtNum(cpuDC)} per DC × ${DC} = ${fmtNum(cpuDC*DC)}
     Total RAM                  : ${fmtNum(ramDC*DC)} GB
       Formula: ${fmtNum(ramDC)} GB per DC × ${DC} = ${fmtNum(ramDC*DC)} GB
-    Total local disk           : ${fmtTB(localDisk*DC)}
-      Formula: ${fmtTB(localDisk)} per DC × ${DC} = ${fmtTB(localDisk*DC)}
-${tiered?`    Total object storage      : ${fmtTB((isM?coldT:coldT/Math.max(DC,1))*DC)}
-      Formula: ${fmtTB(isM?coldT:coldT/Math.max(DC,1))} per DC × ${DC} = ${fmtTB((isM?coldT:coldT/Math.max(DC,1))*DC)}
-`:''}${DC>1&&isM?`    Inter-DC bandwidth       : ${dcGbps} Gbps / link
-      Formula: ${fmtMBs(xdcBw)} ≈ ${dcGbps} Gbps per inter-DC link
+    Total local disk           : ${fmtTB(isM?localDisk*DC:localDisk)}
+      ${isM?`Formula: ${fmtTB(localDisk)} per DC × ${DC} = ${fmtTB(localDisk*DC)}`:`Cluster total, split across ${DC} DC${DC>1?'s':''}`}
+${tiered?`    Total object storage      : ${fmtTB(isM?coldT*DC:coldT)}
+      ${isM?`Formula: ${fmtTB(coldT)} per DC × ${DC} = ${fmtTB(coldT*DC)}`:`Cluster total, split across ${DC} DC${DC>1?'s':''}`}
+`:''}${DC>1&&isM?`    Inter-DC per-link outbound  : ${fmtMBs(xdcOut)}
+    Inter-DC per-link bidir.   : ${fmtMBs(xdcBidir)} ≈ ${dcGbps} Gbps per link
 `:''}
 ${'═'.repeat(60)}
 END OF REPORT
@@ -1796,24 +1871,26 @@ END OF REPORT
 
 // ═══ SCENARIOS ═══
 const scenarioDefaults = [
-  {label:'Scenario A',rate:10000,size:1024,peak:3,rf:3,ret:7,cr:4,cg:3,dcs:1,util:50,diskW:500,jbod:1,nic:1250,maxStor:15},
-  {label:'Scenario B',rate:100000,size:1024,peak:3,rf:3,ret:7,cr:4,cg:3,dcs:1,util:50,diskW:500,jbod:1,nic:3125,maxStor:15},
-  {label:'Scenario C',rate:1000000,size:1024,peak:3,rf:3,ret:7,cr:4,cg:5,dcs:2,util:50,diskW:500,jbod:4,nic:3125,maxStor:15},
-  {label:'Scenario D',rate:10000000,size:1024,peak:3,rf:3,ret:7,cr:4,cg:5,dcs:2,util:50,diskW:500,jbod:12,nic:3125,maxStor:15},
+  {label:'Scenario A',rate:10000,size:1024,peak:3,rf:3,ret:7,cr:4,cg:3,dcs:1,util:50,diskW:500,jbod:1,nic:1250,maxStor:15,hdroom:1.35},
+  {label:'Scenario B',rate:100000,size:1024,peak:3,rf:3,ret:7,cr:4,cg:3,dcs:1,util:50,diskW:500,jbod:1,nic:3125,maxStor:15,hdroom:1.35},
+  {label:'Scenario C',rate:1000000,size:1024,peak:3,rf:3,ret:7,cr:4,cg:5,dcs:2,util:50,diskW:500,jbod:4,nic:3125,maxStor:15,hdroom:1.35},
+  {label:'Scenario D',rate:10000000,size:1024,peak:3,rf:3,ret:7,cr:4,cg:5,dcs:2,util:50,diskW:500,jbod:12,nic:3125,maxStor:15,hdroom:1.35},
 ];
 let scenarioState = JSON.parse(JSON.stringify(scenarioDefaults));
 
 function scenarioCalc(s){
   const R=s.rate,S=s.size,P=s.peak,RF=Math.max(1,s.rf),T=s.ret,CR=Math.max(1,s.cr),C=s.cg;
   const DC=Math.max(1,s.dcs),util=Math.max(10,s.util)/100;
+  const hdroom=Math.max(1,s.hdroom||1.35);
   const dwSingle=s.diskW,jbod=Math.max(1,s.jbod),maxDW=dwSingle*jbod;
   const NIC=s.nic,maxStor=s.maxStor;
   const MB=1048576,TB=1099511627776;
-  const inSteady=R*S/MB, inPeak=inSteady*P;
-  const replW=inPeak*RF, totalIO=inPeak*(RF+C);
-  const rawTB=R*S*T*86400/TB, compTB=rawTB/CR, totRF_TB=compTB*RF, totH=totRF_TB*1.35;
-  const bNet=Math.ceil(totalIO/(NIC*util));
-  const bDisk=Math.ceil(replW/(maxDW*util));
+  const inSteady=R*S/MB, inPeak=inSteady*P, wirePk=inPeak/CR;
+  const diskWrTotal=wirePk*RF, followerRepl=wirePk*(RF-1), conEgr=wirePk*C;
+  const totalNetIO=wirePk*(RF+C);
+  const rawTB=R*S*T*86400/TB, compTB=rawTB/CR, totRF_TB=compTB*RF, totH=totRF_TB*hdroom;
+  const bNet=Math.ceil(totalNetIO/(NIC*util));
+  const bDisk=Math.ceil(diskWrTotal/(maxDW*util));
   const bStor=Math.ceil(totH/(maxStor*util));
   const brokers=Math.max(bNet,bDisk,bStor,RF);
   const lim=bNet>=bDisk&&bNet>=bStor&&bNet>=RF?'Network':bDisk>=bStor&&bDisk>=RF?'Disk Write':bStor>=RF?'Storage':'RF';
@@ -1822,14 +1899,15 @@ function scenarioCalc(s){
   const ctrlRam=brokers<20?8:brokers<50?16:64;
   const cpuB=inPeak<50?8:inPeak<500?16:inPeak<5000?24:inPeak<50000?32:48;
   const ramB=inPeak<50?32:inPeak<500?64:128;
-  const xdc=DC>1?inPeak/CR:0;
-  const mm2=DC>1?Math.max(1,Math.ceil(xdc/150)):0;
-  const mm2Cpu=xdc<500?4:8, mm2Ram=xdc<500?16:32;
+  const xdcOut=DC>1?wirePk:0;
+  const xdcBidir=xdcOut*2;
+  const mm2=DC>1?Math.max(1,Math.ceil(xdcOut/150)):0;
+  const mm2Cpu=xdcOut<500?4:8, mm2Ram=xdcOut<500?16:32;
   const cpuDC=brokers*cpuB+ctrlN*ctrlCpu+mm2*mm2Cpu;
   const ramDC=brokers*ramB+ctrlN*ctrlRam+mm2*mm2Ram;
-  const dcGbps=DC>1?Math.ceil(xdc*2*8/1000):0;
+  const dcGbps=DC>1?Math.ceil(xdcBidir*8/1000):0;
   const diskB=brokers>0?totH/brokers:0;
-  return {inSteady,inPeak,totalIO,totH,bNet,bDisk,bStor,brokers,lim,ctrlN,mm2,cpuB,ramB,cpuDC,ramDC,dcGbps,diskB,DC,jbod};
+  return {inSteady,inPeak,wirePk,diskWrTotal,followerRepl,conEgr,totalNetIO,totH,bNet,bDisk,bStor,brokers,lim,ctrlN,mm2,cpuB,ramB,cpuDC,ramDC,xdcOut,dcGbps,diskB,DC,jbod};
 }
 
 function renderScenarios(){
@@ -1849,6 +1927,7 @@ function renderScenarios(){
     {key:'jbod',label:'JBOD Disks / Broker',unit:'disks'},
     {key:'nic',label:'NIC Bandwidth / Broker',unit:'MB/s'},
     {key:'maxStor',label:'Max Storage / Broker',unit:'TB'},
+    {key:'hdroom',label:'Storage Headroom',unit:'×'},
   ];
   const calcs=scenarioState.map(scenarioCalc);
   let h=`<thead><tr><th style="width:220px">Parameter</th>`;
@@ -1865,9 +1944,12 @@ function renderScenarios(){
   });
   h+=`<tr class="scn-section"><td colspan="5">📊 Calculated Results</td></tr>`;
   const rows=[
-    {label:'Ingress steady',fn:c=>fmtMBs(c.inSteady)},
-    {label:'Ingress peak',fn:c=>fmtMBs(c.inPeak)},
-    {label:'Total broker I/O peak',fn:c=>fmtMBs(c.totalIO)},
+    {label:'Ingress peak (logical)',fn:c=>fmtMBs(c.inPeak)},
+    {label:'Wire ingress (compressed)',fn:c=>fmtMBs(c.wirePk)},
+    {label:'Total disk writes',fn:c=>fmtMBs(c.diskWrTotal)},
+    {label:'Follower replication (net)',fn:c=>fmtMBs(c.followerRepl)},
+    {label:'Consumer egress (compressed)',fn:c=>fmtMBs(c.conEgr)},
+    {label:'Total network I/O',fn:c=>fmtMBs(c.totalNetIO)},
     {label:'Total storage (RF + headroom)',fn:c=>fmtTB(c.totH)},
     {label:'Brokers — network-bound',fn:c=>c.bNet+''},
     {label:'Brokers — disk write-bound',fn:c=>c.bDisk+(c.jbod>1?' <span style="font-size:.65rem;color:var(--text-muted)">('+c.jbod+'× JBOD)</span>':'')},
@@ -1896,7 +1978,8 @@ function renderScenarios(){
     {label:'RAM / Broker',fn:c=>c.ramB+' GB',hl:false},
     {label:'Total CPU / DC',fn:c=>fmtNum(c.cpuDC)+' cores',hl:true},
     {label:'Total RAM / DC',fn:c=>fmtNum(c.ramDC)+' GB',hl:true},
-    {label:'Cross-DC Link',fn:c=>c.DC>1?c.dcGbps+' Gbps':'—',hl:false},
+    {label:'Cross-DC per-link outbound',fn:c=>c.DC>1?fmtMBs(c.xdcOut):'—',hl:false},
+    {label:'Cross-DC per-link bidir.',fn:c=>c.DC>1?c.dcGbps+' Gbps':'—',hl:false},
     {label:'Total Brokers (all DCs)',fn:c=>fmtNum(c.brokers*c.DC),hl:true},
     {label:'Total CPU (all DCs)',fn:c=>fmtNum(c.cpuDC*c.DC)+' cores',hl:true},
     {label:'Total RAM (all DCs)',fn:c=>fmtNum(c.ramDC*c.DC)+' GB',hl:true},
