@@ -22,7 +22,7 @@
 }
 html { scroll-behavior: smooth; }
 body { font-family: var(--font-body); background: var(--bg); color: var(--text); line-height: 1.6; min-height: 100vh; }
-.app { position:relative; z-index:1; max-width:1400px; margin:0 auto; padding:0 24px 80px; }
+.app { position:relative; z-index:1; max-width:90vw; margin:0 auto; padding:0 24px 80px; }
 
 .hero { padding:48px 0 36px; border-bottom:1px solid var(--border); margin-bottom:36px; position:relative; }
 .hero h1 { font-family:var(--font-display); font-size:2.2rem; font-weight:700; letter-spacing:-0.01em; line-height:1.2; color:var(--text); margin-bottom:8px; }
@@ -328,7 +328,7 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
       <div class="form-group"><label class="form-label">Enable Tiered Storage <span class="tip" data-tip="KIP-405. Offloads old log segments to S3/GCS/Azure Blob. Dramatically reduces local disk for long retention.">?</span></label>
         <select class="form-select" id="tieredStorage" onchange="recalc()"><option value="0">Disabled</option><option value="1" selected>Enabled</option></select></div>
       <div class="form-group" id="hotTierGroup"><label class="form-label">Hot Tier Retention <span class="tip" data-tip="Hours of data on fast local NVMe. Tailing consumers read from here; historical consumers read from object storage.">?</span></label><input type="number" class="form-input" id="hotTierHours" value="24" oninput="recalc()"><div class="form-unit">hours (6–48 typical)</div></div>
-      <div class="info-box info"><strong>When to use:</strong> Recommended when retention &gt; 24h and total storage exceeds ~50 TB. Reduces local disk by 70–90%.<br><br><a href="https://cwiki.apache.org/confluence/display/KAFKA/KIP-405%3A+Kafka+Tiered+Storage" target="_blank">📄 KIP-405: Kafka Tiered Storage</a></div>
+      <div class="info-box info"><strong>When to use:</strong> Recommended when retention &gt; 24h and total storage exceeds ~50 TB. Reduces local disk by 70–90%.<br><br><a href="https://cwiki.apache.org/confluence/display/KAFKA/KIP-405%3A+Kafka+Tiered+Storage" target="_blank">📄 KIP-405: Kafka Tiered Storage</a> · <a href="https://github.com/Aiven-Open/tiered-storage-for-apache-kafka" target="_blank">🔗 Aiven Tiered Storage for Apache Kafka</a></div>
     </div>
   </div>
 </div>
@@ -602,7 +602,8 @@ function dcName(i){const el=document.getElementById('dcName'+i);return el&&el.va
 
 function banner(o){
   const cn={'1':'None','3':'Snappy','4':'LZ4','5':'ZSTD'};
-  const crLabel=cn[String(o.CR)]||(o.CR+':1');
+  const crName=cn[String(o.CR)];
+  const crLabel=crName?crName+' '+o.CR+':1':o.CR+':1';
   const sep='<span class="ib-sep">·</span>';
   const iv=(v,l)=>`<span><span class="ib-val">${v}</span> ${l}</span>`;
   return `<span class="ib-label">Inputs:</span>
@@ -1575,7 +1576,7 @@ function recalc(){
   document.getElementById('summary-headline').innerHTML=
     mc(fmtNum(sBT),'Total Brokers',DC>1?'across '+DC+' DCs':'single DC',isM?'multi':(DC>1?'stretch':'blue'))+
     mc(fmtNum(cpuDC)+' <span class="result-unit">cores</span>','CPU per DC','','orange')+
-    mc(fmtTB(isM?localDisk:localDisk/Math.max(DC,1)),'Local Disk / DC',tiered?'+ '+fmtTB(isM?coldT:coldT/Math.max(DC,1))+' object':'','purple');
+    mc(fmtTB(isM?localDisk:localDisk/Math.max(DC,1)),'Local Disk / DC',tiered?'+ '+fmtTB(isM?coldT:coldT/Math.max(DC,1))+' of object storage':'','purple');
 
   document.getElementById('summary-topo-label').innerHTML=tl;
   document.getElementById('summary-details').innerHTML=

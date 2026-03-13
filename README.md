@@ -39,7 +39,7 @@ The starting point for all calculations. Two input cards:
 - **Event Rate** — sustained events/sec at steady state
 - **Avg Event Size** — serialized message size (key + value + headers) in bytes
 - **Peak Multiplier** — burst-to-steady ratio (e.g. 3x means peak is 3 times the steady rate)
-- **Compression** — producer codec selection (None, Snappy ~3:1, LZ4 ~4:1, ZSTD ~5:1)
+- **Compression** — producer codec selection (None, Snappy ~3:1, LZ4 ~4:1, ZSTD ~5:1) or custom ratio
 
 **Replication & Retention:**
 - **Replication Factor (RF)** — number of partition copies (typically 3)
@@ -51,38 +51,43 @@ The starting point for all calculations. Two input cards:
 - **Disk Write** — sustained sequential write speed per disk (NVMe ~500 MB/s, SSD ~300 MB/s, HDD ~150 MB/s)
 - **JBOD Disks / Broker** — independent disks per broker; each adds throughput linearly
 - **Max Storage / Broker** — total usable storage per broker across all disks
-- **NIC Bandwidth** — network interface capacity with presets (10G, 25G, 2x25G bonded) or custom
+- **NIC Bandwidth** — network interface capacity with presets (10G, 25G, 2×25G bonded, 100G, 2×100G bonded) or custom
 - **Target Utilization** — max utilization ceiling (50% recommended for rolling upgrade headroom)
+
+**Replication & Retention** also includes:
+- **Storage Headroom** — configurable multiplier for segment overhead, compaction, and index files (default 1.35×)
 
 **Tiered Storage:**
 - **Enable/Disable** — toggle KIP-405 offloading to object storage
 - **Hot Tier Retention** — hours of data kept on fast local NVMe (6–48h typical)
+- Links to [KIP-405](https://cwiki.apache.org/confluence/display/KAFKA/KIP-405%3A+Kafka+Tiered+Storage) and [Aiven Tiered Storage for Apache Kafka](https://github.com/Aiven-Open/tiered-storage-for-apache-kafka)
 
 ### Throughput
 
-Calculates all data flow rates at peak:
+Calculates all data flow rates at peak. Compression is applied to all wire and disk traffic (Kafka stores and replicates compressed batches):
 
 | Metric | Formula |
 |---|---|
-| Ingress (steady) | `R × S` |
-| Ingress (peak) | `Steady × Peak Multiplier` |
-| Wire ingress (compressed) | `Peak / Compression Ratio` |
-| Internal replication write | `Peak × RF` |
-| Consumer egress | `Peak × Consumer Groups` |
-| **Total broker I/O** | **`Peak × (RF + Consumer Groups)`** |
+| Ingress (steady, logical) | `R × S` |
+| Ingress (peak, logical) | `Steady × Peak Multiplier` |
+| Producer wire ingress (compressed) | `Peak / CR` |
+| Follower replication (network) | `Wire × (RF − 1)` |
+| Total disk writes across cluster | `Wire × RF` |
+| Consumer egress (compressed) | `Wire × Consumer Groups` |
+| **Total network I/O** | **`Wire × (RF + Consumer Groups)`** |
 
-For multi-DC setups, also computes cross-DC replication bandwidth.
+For multi-DC setups, also computes per-link outbound, bidirectional aggregate, and total egress per DC.
 
 ### Storage
 
-Computes total disk requirements with a 1.35x headroom factor for segment overhead, compaction, and index files:
+Computes total disk requirements with a configurable headroom factor (default 1.35×) for segment overhead, compaction, and index files:
 
 | Metric | Formula |
 |---|---|
 | Raw retention | `R × S × Retention_days × 86400` |
 | Compressed on disk | `Raw / Compression Ratio` |
 | With replication | `Compressed × RF` |
-| **Total with headroom** | **`With_RF × 1.35`** |
+| **Total with headroom** | **`With_RF × headroom`** |
 
 When tiered storage is enabled, splits into:
 - **Hot tier (local)** — computed from Hot Tier Hours instead of full retention
@@ -90,12 +95,12 @@ When tiered storage is enabled, splits into:
 
 ### Brokers
 
-Determines broker count by finding the most constraining resource:
+Determines broker count by finding the most constraining resource. Each capacity is utilization-adjusted:
 
 | Constraint | Formula |
 |---|---|
-| Network-bound | `ceil(Total_IO / (NIC × Utilization))` |
-| Disk write-bound | `ceil(Replication_Write / (Disk_Write × JBOD × Utilization))` |
+| Network-bound | `ceil(Total_Net_IO / (NIC × Utilization))` |
+| Disk write-bound | `ceil(Total_Disk_Writes / (Disk_Write × JBOD × Utilization))` |
 | Storage-bound | `ceil(Local_Disk / (Max_Storage × Utilization))` |
 | Minimum RF | `RF` (at least RF brokers required) |
 
@@ -133,7 +138,7 @@ Compares two multi-DC architectures when more than 1 datacenter is selected. Sup
 **Stretch Cluster:**
 - Single logical Kafka cluster spanning DCs via `broker.rack`
 - Synchronous replication built into RF — every `acks=all` produce waits for cross-DC ACK
-- RPO = 0 (zero data loss), strong data consistency
+- Effectively zero data loss for acknowledged writes (with `acks=all` and appropriate `min.insync.replicas`), single authoritative log with strong consistency
 - Trade-off: produce latency increases by inter-DC RTT
 - Total brokers = same as single-DC count (replicas distributed across DCs)
 
@@ -149,16 +154,18 @@ Both topology sections include total CPU/RAM per DC accounting for all component
 
 ### Partitions
 
-Guidelines based on a 30 MB/s per-partition ceiling:
+Guidelines based on configurable per-partition throughput ceilings (default 30 MB/s for both produce and consume):
 
-- **Minimum partitions** = `ceil(Peak_Ingress / 30 MB/s)`
+- **Minimum partitions (produce)** = `ceil(Wire_Ingress / Target_Produce_per_Partition)`
+- **Minimum partitions (consume)** = `ceil(Consumer_Egress / Target_Consume_per_Partition)`
+- **Minimum partitions** = `max(produce_min, consume_min)`
 - **Recommended** = `max(6, minimum)` — at least 6 for consumer parallelism
 - **Per-broker limit** — ~4,000 partitions for low latency
 - **Cluster-wide limit** — brokers × 4,000 (KRaft supports ~2M cluster-wide)
 
 ### Scenarios
 
-Side-by-side comparison of 4 independent workload profiles. Each scenario has its own editable inputs (event rate, event size, peak multiplier, RF, retention, compression, consumer groups, DCs, utilization, disk write, JBOD count, NIC, max storage). All calculated results update independently. Default scenarios range from 10K to 10M events/sec.
+Side-by-side comparison of 4 independent workload profiles. Each scenario has its own editable inputs (event rate, event size, peak multiplier, RF, retention, compression, consumer groups, DCs, utilization, disk write, JBOD count, NIC, max storage, storage headroom). All calculated results update independently. Default scenarios range from 10K to 10M events/sec.
 
 ### Monitoring
 
@@ -186,7 +193,7 @@ Sizing configurations can be named, saved as shareable URLs, and restored on pag
 
 - **Name** — give your sizing configuration a descriptive name (e.g. "Production cluster Q3 2026")
 - **Save as URL** — serializes all sizing inputs into an unsigned JWT (`alg: "none"`) stored in a `?config=` query parameter; the URL is copied to clipboard and can be shared or bookmarked
-- **Load** — opening a URL with a `?config=` parameter automatically restores all inputs (workload, hardware, tiered storage, SR/RP, topology, DC names) and recomputes all results
+- **Load** — opening a URL with a `?config=` parameter automatically restores all inputs (workload, hardware, tiered storage, storage headroom, partition ceilings, SR/RP, topology, DC names) and recomputes all results
 - **Reset** — restores all inputs to factory defaults
 
 The JWT payload contains a flat JSON object with all input field values, the topology mode, and DC names. No signature or server is required — the configuration is entirely client-side.
