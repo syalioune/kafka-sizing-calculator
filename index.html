@@ -1383,7 +1383,7 @@ function recalc(){
       ${srOn?`<div class="dc-comp"><span>Schema Registry</span><span class="dc-cnt">${srHA}</span></div>`:''}
       ${rpOn?`<div class="dc-comp"><span>REST Proxy</span><span class="dc-cnt">${rpInst}</span></div>`:''}
       ${storageBar(storPerDC_s,coldPerDC_s,tiered)}
-      <p style="margin-top:6px"><span style="font-size:.68rem;color:var(--text-dim)">${cpuB} vCPU · ${ramB} GB RAM / broker</span><br>~${replPerPart} replica(s) per partition<br><code style="font-size:.68rem">broker.rack=${dcName(i)}</code></p></div>`;
+      <p style="margin-top:6px"><span style="font-size:.68rem;color:var(--text-dim)">${cpuB} vCPU · ${ramB} GB RAM · ${fmtNum(NIC)} MB/s NIC / broker</span><br>~${replPerPart} replica(s) per partition<br><code style="font-size:.68rem">broker.rack=${dcName(i)}</code></p></div>`;
   }
   if(DC>1) sd=`<div class="cluster-wrap"><div class="cluster-wrap-label">Single Kafka Cluster</div>${sd}</div>`;
   document.getElementById('stretch-diagram').innerHTML=sd;
@@ -1442,7 +1442,7 @@ function recalc(){
       ${srOn?`<div class="dc-comp"><span>Schema Registry</span><span class="dc-cnt">${srHA}</span></div>`:''}
       ${rpOn?`<div class="dc-comp"><span>REST Proxy</span><span class="dc-cnt">${rpInst}</span></div>`:''}
       ${storageBar(storPerDC_m,coldPerDC_m,tiered)}
-      <p style="margin-top:6px"><span style="font-size:.68rem;color:var(--text-dim)">${cpuB} vCPU · ${ramB} GB RAM / broker</span><br>Independent cluster, RF=${RF} internal<br>Sized for 100% failover capacity</p></div></div>`;
+      <p style="margin-top:6px"><span style="font-size:.68rem;color:var(--text-dim)">${cpuB} vCPU · ${ramB} GB RAM · ${fmtNum(NIC)} MB/s NIC / broker</span><br>Independent cluster, RF=${RF} internal<br>Sized for 100% failover capacity</p></div></div>`;
   }
   document.getElementById('multi-diagram').innerHTML=md;
   // Mesh link for 3 DCs (DC-1 ↔ DC-3)
