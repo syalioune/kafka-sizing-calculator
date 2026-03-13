@@ -1591,7 +1591,7 @@ function recalc(){
 
   document.getElementById('summary-headline').innerHTML=
     mc(fmtNum(sBT),'Total Brokers',DC>1?'across '+DC+' DCs':'single DC',isM?'multi':(DC>1?'stretch':'blue'))+
-    mc(fmtNum(cpuDC)+' <span class="result-unit">cores</span>','CPU per DC','','orange')+
+    mc(fmtNum(cpuDC)+' <span class="result-unit">cores</span> · '+fmtNum(ramDC)+' <span class="result-unit">GB RAM</span>','CPU & RAM per DC','','orange')+
     mc(fmtTB(isM?localDisk:localDisk/Math.max(DC,1)),'Local Disk / DC',tiered?'+ '+fmtTB(isM?coldT:coldT/Math.max(DC,1))+' of object storage':'','purple');
 
   document.getElementById('summary-topo-label').innerHTML=tl;
