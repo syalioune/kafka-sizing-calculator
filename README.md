@@ -210,7 +210,7 @@ A standalone diagram design tool that reuses the same visual components as the S
 
 **Components per DC:**
 - Kafka Brokers, KRaft Controllers, Schema Registry, REST Proxy, MirrorMaker 2 Workers (set to 0 to hide any component)
-- Hardware per Broker — configurable vCPU and RAM displayed in each DC box
+- Hardware per Broker — configurable vCPU, RAM, NIC bandwidth, disk write speed, JBOD disk count, and max storage displayed in each DC box
 
 **Storage Visualization:**
 - Hidden, Local only, or Tiered (hot + cold) with custom labels and proportions

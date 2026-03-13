@@ -532,6 +532,12 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
         <div class="form-row">
           <div class="form-group"><label class="form-label">vCPU</label><input type="number" class="form-input" id="diagCpu" value="16" min="0" oninput="renderArchDiagram()"></div>
           <div class="form-group"><label class="form-label">RAM (GB)</label><input type="number" class="form-input" id="diagRam" value="64" min="0" oninput="renderArchDiagram()"></div>
+          <div class="form-group"><label class="form-label">NIC (MB/s)</label><input type="number" class="form-input" id="diagNic" value="3125" min="0" oninput="renderArchDiagram()"></div>
+        </div>
+        <div class="form-row" style="margin-top:8px">
+          <div class="form-group"><label class="form-label">Disk Write (MB/s)</label><input type="number" class="form-input" id="diagDiskWrite" value="500" min="0" oninput="renderArchDiagram()"></div>
+          <div class="form-group"><label class="form-label">JBOD Disks</label><input type="number" class="form-input" id="diagJbod" value="1" min="1" oninput="renderArchDiagram()"></div>
+          <div class="form-group"><label class="form-label">Max Storage (TB)</label><input type="number" class="form-input" id="diagMaxStorage" value="15" min="0" oninput="renderArchDiagram()"></div>
         </div>
       </div>
     </div>
@@ -1093,6 +1099,10 @@ function renderArchDiagram(){
   const mm2=parseInt(document.getElementById('diagMM2').value)||0;
   const diagCpu=parseInt(document.getElementById('diagCpu').value)||0;
   const diagRam=parseInt(document.getElementById('diagRam').value)||0;
+  const diagNic=parseInt(document.getElementById('diagNic').value)||0;
+  const diagDiskWrite=parseInt(document.getElementById('diagDiskWrite').value)||0;
+  const diagJbod=Math.max(1,parseInt(document.getElementById('diagJbod').value)||1);
+  const diagMaxStorage=parseInt(document.getElementById('diagMaxStorage').value)||0;
   const storMode=parseInt(document.getElementById('diagStorageEnabled').value)||0;
   const hotLabel=document.getElementById('diagHotLabel').value||'';
   const coldLabel=document.getElementById('diagColdLabel').value||'';
@@ -1182,7 +1192,13 @@ function renderArchDiagram(){
     if(sr>0) box+=`<div class="dc-comp"><span>Schema Registry</span><span class="dc-cnt">${sr}</span></div>`;
     if(rp>0) box+=`<div class="dc-comp"><span>REST Proxy</span><span class="dc-cnt">${rp}</span></div>`;
     box+=dStorageBar();
-    if(diagCpu>0||diagRam>0) box+=`<p style="margin-top:6px"><span style="font-size:.68rem;color:var(--text-dim)">${diagCpu} vCPU · ${diagRam} GB RAM / broker</span></p>`;
+    const hwParts=[];
+    if(diagCpu>0) hwParts.push(diagCpu+' vCPU');
+    if(diagRam>0) hwParts.push(diagRam+' GB RAM');
+    if(diagNic>0) hwParts.push(fmtNum(diagNic)+' MB/s NIC');
+    if(diagDiskWrite>0) hwParts.push(diagDiskWrite+(diagJbod>1?' × '+diagJbod:'')+' MB/s disk');
+    if(diagMaxStorage>0) hwParts.push(diagMaxStorage+' TB stor');
+    if(hwParts.length>0) box+=`<p style="margin-top:6px"><span style="font-size:.68rem;color:var(--text-dim)">${hwParts.join(' · ')} / broker</span></p>`;
     box+='</div>';
 
     if(!isStretch&&DC>1){
