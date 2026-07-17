@@ -1314,7 +1314,10 @@ function recalc(){
   const pt=v('partProduce')||30;       // per-partition produce ceiling (MB/s)
   const ptConsume=v('partConsume')||30; // per-partition consume ceiling (MB/s)
   const minPProd=Math.max(1,Math.ceil(wirePeak/pt));
-  const minPCons=Math.max(1,Math.ceil(conEgr/ptConsume));
+  // Each consumer group reads the same partitions independently, so partition count is
+  // driven by the throughput a single group must sustain (= wire ingress), not by the
+  // number of groups. Extra groups add broker network/CPU load, not partitions.
+  const minPCons=Math.max(1,Math.ceil(wirePeak/ptConsume));
   const minP=Math.max(minPProd,minPCons);
   const recP=Math.max(6,minP);
   const maxPB=4000;
@@ -1570,7 +1573,7 @@ function recalc(){
     rr('Target produce / partition',pt+' MB/s','','Per-partition ceiling — depends on batching, compression, acks, and hardware. Configurable above.')+
     rr('Target consume / partition',ptConsume+' MB/s','','Per-partition consume ceiling. Can differ from produce with heavy consumer processing.')+
     rr('Min partitions (produce)',minPProd,'',`⌈ wire_ingress / p ⌉ = ⌈ ${fmtMBs(wirePeak)} / ${pt} MB/s ⌉ = ${minPProd}`)+
-    rr('Min partitions (consume)',minPCons,'',`⌈ consumer_egress / c ⌉ = ⌈ ${fmtMBs(conEgr)} / ${ptConsume} MB/s ⌉ = ${minPCons}`)+
+    rr('Min partitions (consume)',minPCons,'',`⌈ wire_ingress / c ⌉ = ⌈ ${fmtMBs(wirePeak)} / ${ptConsume} MB/s ⌉ = ${minPCons}. Each consumer group reads all partitions independently, so group count (${C}) drives broker network I/O, not partition count.`)+
     rr('Min partitions (max of produce, consume)',minP,'',`max(${minPProd}, ${minPCons}) = ${minP}`)+
     rr('Recommended / high-throughput topic',recP,'highlight',`max(6, ${minP}) = ${recP}. At least 6 for consumer parallelism.`)+
     rr('Max per broker',fmtNum(maxPB),'','Keep below ~4,000 per broker for low latency. More partitions = more file handles, memory, rebalancing time.')+
@@ -1829,7 +1832,7 @@ ${'─'.repeat(60)}
   Min partitions (produce)   : ${minPProd}
     Formula: ⌈wire_ingress / p⌉ = ⌈${fmtMBs(wirePeak)} / ${pt} MB/s⌉ = ${minPProd}
   Min partitions (consume)   : ${minPCons}
-    Formula: ⌈consumer_egress / c⌉ = ⌈${fmtMBs(conEgr)} / ${ptConsume} MB/s⌉ = ${minPCons}
+    Formula: ⌈wire_ingress / c⌉ = ⌈${fmtMBs(wirePeak)} / ${ptConsume} MB/s⌉ = ${minPCons}
   Min partitions (max)       : ${minP}
   Recommended / topic        : ${recP}
     Formula: max(6, ${minP}) = ${recP} (at least 6 for consumer parallelism)
