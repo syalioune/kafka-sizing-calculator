@@ -124,6 +124,10 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 .cmp-table td:first-child { color:var(--text-dim); font-weight:600; }
 .cmp-table td.stretch-td { color:var(--stretch-color); font-family:var(--font-mono); font-weight:600; font-size:.82rem; }
 .cmp-table td.multi-td { color:var(--multi-color); font-family:var(--font-mono); font-weight:600; font-size:.82rem; }
+.tier-table th, .tier-table td { padding:6px 12px; font-size:.76rem; }
+.tier-table td:not(:first-child) { font-family:var(--font-mono); color:var(--text); }
+.tier-table tr.tier-active td { background:rgba(55,114,255,.10); font-weight:700; }
+.tier-table tr.tier-active td:first-child { color:var(--accent-blue); }
 
 .info-box { padding:16px 20px; border-radius:var(--radius-sm); margin:16px 0; font-size:.85rem; line-height:1.6; border-left:3px solid; }
 .info-box.warn { background:#fbe1de; border-color:var(--accent-red); color:#5f2a24; }
@@ -1373,8 +1377,18 @@ function recalc(){
   const maxPB=4000;
 
   // Machine gabarit / profile — ideal per-broker tier vs the machine you can actually provision
-  const cpuIdeal=inPeak<50?8:inPeak<500?16:inPeak<5000?24:inPeak<50000?32:48;
-  const ramIdeal=inPeak<50?32:inPeak<500?64:128;
+  // Per-broker sizing tiers: max peak ingress (MB/s) → recommended vCPU / RAM. Single source of
+  // truth for both the ideal-spec recommendation and the tier table shown in the Brokers tab.
+  const sizingTiers=[
+    {max:50,cpu:8,ram:32},
+    {max:500,cpu:16,ram:64},
+    {max:5000,cpu:24,ram:128},
+    {max:50000,cpu:32,ram:128},
+    {max:Infinity,cpu:48,ram:128}
+  ];
+  const activeTier=sizingTiers.findIndex(t=>inPeak<t.max);
+  const cpuIdeal=sizingTiers[activeTier].cpu;
+  const ramIdeal=sizingTiers[activeTier].ram;
   const machineMode=(document.getElementById('machineMode')||{}).value||'auto';
   const constrained=machineMode==='constrained';
   const machineVcpu=v('machineVcpu'),machineRam=v('machineRam');
@@ -1429,6 +1443,24 @@ function recalc(){
     machineFitNote=`<div class="info-box ${anyShort?'warn':'info'}" style="margin-top:12px"><strong>${anyShort?'⚠ Machine below ideal spec':'✓ Machine meets ideal spec'}</strong><ul style="margin:8px 0 0;padding-left:18px;font-size:.78rem;line-height:1.5">${items.join('')}</ul></div>`;
   }
 
+  // Per-broker sizing tier table — makes the CPU/RAM heuristic explicit; active row highlighted
+  const tierTable=
+    `<div style="margin-top:16px">`+
+      `<div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text-dim);margin-bottom:2px">Per-broker sizing tiers <span class="tip" data-tip="Baseline CPU/RAM the calculator recommends for a broker carrying the full peak (logical) ingress. Accounts for compression and SSL/TLS overhead. The row matching your current peak ingress is highlighted. In constrained mode the table is read in reverse: a machine's vCPU/RAM sets the peak ingress one broker can sustain, which drives the CPU/RAM broker constraints.">?</span></div>`+
+      `<table class="cmp-table tier-table"><thead><tr><th>Peak ingress</th><th>vCPU</th><th>RAM</th></tr></thead><tbody>`+
+      sizingTiers.map((t,i)=>{
+        const lo=i===0?0:sizingTiers[i-1].max;
+        const label=i===0?`&lt; ${fmtMBs(t.max)}`:(t.max===Infinity?`≥ ${fmtMBs(lo)}`:`${fmtMBs(lo)} – ${fmtMBs(t.max)}`);
+        return `<tr class="${i===activeTier?'tier-active':''}"><td>${label}</td><td>${t.cpu} vCPU</td><td>${t.ram} GB</td></tr>`;
+      }).join('')+
+      `</tbody></table>`+
+      `<div style="font-size:.7rem;color:var(--text-muted);margin-top:6px">`+
+        (constrained&&(machineVcpu>0||machineRam>0)
+          ? `Constrained mode — read in reverse: a ${machineVcpu||'?'} vCPU / ${machineRam||'?'} GB machine sustains up to ~${fmtMBs(machIngressCeil)} (CPU) / ~${fmtMBs(ramIngressCeil)} (RAM) peak ingress per broker before that resource forces more brokers.`
+          : `Highlighted row = your current peak ingress ${fmtMBs(inPeak)}. Switch to <strong>Constrain to available machine</strong> to size against machines you can actually provision.`)+
+      `</div>`+
+    `</div>`;
+
   document.getElementById('broker-hardware').innerHTML=
     rr('CPU',cpuB+' cores'+(constrained&&machineVcpu>0?' <span class="limiting-badge" style="background:var(--accent-orange)">machine</span>':''),'',constrained&&machineVcpu>0?`Constrained to available machine: ${machineVcpu} vCPU. Ideal tier for ${fmtMBs(inPeak)} peak ingress ≈ ${cpuIdeal} cores.`:`Based on peak ingress tier: ${fmtMBs(inPeak)} → ${cpuB} cores. Accounts for compression, SSL/TLS overhead.`)+
     rr('RAM',ramB+' GB'+(constrained&&machineRam>0?' <span class="limiting-badge" style="background:var(--accent-orange)">machine</span>':''),'',constrained&&machineRam>0?`Constrained to available machine: ${machineRam} GB. Ideal tier ≈ ${ramIdeal} GB. ${heap} GB JVM heap + ${ramB-heap} GB OS page cache.`:`${heap} GB JVM heap + ${ramB-heap} GB OS page cache. Page cache is critical for consumer read perf.`)+
@@ -1436,6 +1468,7 @@ function recalc(){
     rr('Disk / broker',diskB.toFixed(1)+' TB','',`localDisk / brokers = ${fmtTB(localDisk)} / ${brokers} = ${diskB.toFixed(1)} TB`)+
     rr('Disk layout',dType,'',jbod>1?`${jbod} disks × ${dwSingle} MB/s = ${maxDW} MB/s aggregate write. JBOD configured via log.dirs.`:`Single disk at ${dwSingle} MB/s`)+
     rr('Network',nicR,'',`Recommended based on peak ingress ${fmtMBs(inPeak)}. Each message generates RF−1 replication reads + C consumer reads.`)+
+    tierTable+
     machineFitNote;
 
   const ctrlN=brokers<50?3:5;
