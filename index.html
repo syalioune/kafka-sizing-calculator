@@ -333,7 +333,7 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
   </div>
   <div class="card">
     <div class="card-header"><div class="card-icon orange">🧰</div><div><div class="card-title">Available Machine Profile (Gabarit)</div><div class="card-subtitle">Constrain per-broker CPU/RAM to machines you can actually provision</div></div></div>
-    <div class="form-group"><label class="form-label">Sizing Mode <span class="tip" data-tip="Auto-recommend derives an ideal per-broker CPU/RAM tier from your peak ingress — useful as a target, but only if that machine exists in your DC or cloud. Constrain to available machine fixes CPU/RAM to a profile you can actually get, adds a CPU-bound broker constraint, and scales the cluster out (more, smaller brokers) when that machine can't meet the ideal.">?</span></label>
+    <div class="form-group"><label class="form-label">Sizing Mode <span class="tip" data-tip="Auto-recommend derives an ideal per-broker CPU/RAM tier from your peak ingress — useful as a target, but only if that machine exists in your DC or cloud. Constrain to available machine fixes CPU/RAM to a profile you can actually get, adds CPU- and RAM-bound broker constraints, and scales the cluster out (more, smaller brokers) when that machine can't meet the ideal.">?</span></label>
       <select class="form-select" id="machineMode" onchange="toggleMachineMode();recalc()"><option value="auto" selected>Auto-recommend ideal spec</option><option value="constrained">Constrain to available machine</option></select></div>
     <div id="machineFields" style="display:none">
       <div class="form-row">
@@ -351,7 +351,7 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
       </div>
       <div class="form-row">
         <div class="form-group"><label class="form-label">vCPU / machine <span class="tip" data-tip="Cores available per broker on the machine you can actually provision. Drives a CPU-bound broker constraint: a smaller machine sustains less ingress per broker, so more brokers are required.">?</span></label><input type="number" class="form-input" id="machineVcpu" value="16" min="1" oninput="syncMachinePreset();recalc()"><div class="form-unit">cores per broker</div></div>
-        <div class="form-group"><label class="form-label">RAM / machine <span class="tip" data-tip="Memory available per broker (JVM heap + OS page cache). Checked against the recommended tier — low RAM does not add brokers but shrinks page cache, pushing consumer reads to disk.">?</span></label><input type="number" class="form-input" id="machineRam" value="64" min="1" oninput="syncMachinePreset();recalc()"><div class="form-unit">GB per broker</div></div>
+        <div class="form-group"><label class="form-label">RAM / machine <span class="tip" data-tip="Memory available per broker (JVM heap + OS page cache). Drives a RAM-bound broker constraint: less page cache per broker means fewer bytes stay hot in memory, so more brokers are needed to keep consumer reads from spilling to disk.">?</span></label><input type="number" class="form-input" id="machineRam" value="64" min="1" oninput="syncMachinePreset();recalc()"><div class="form-unit">GB per broker</div></div>
       </div>
       <div class="info-box info">Only machines listed here are used for the recommendation. NIC bandwidth, disk write and per-broker storage remain in the <strong>Broker Hardware Assumptions</strong> card — set those to match the same machine. See the <strong>Brokers</strong> tab for the machine-fit verdict.</div>
     </div>
@@ -1378,8 +1378,9 @@ function recalc(){
   const machineMode=(document.getElementById('machineMode')||{}).value||'auto';
   const constrained=machineMode==='constrained';
   const machineVcpu=v('machineVcpu'),machineRam=v('machineRam');
-  // Max peak ingress (MB/s) a single broker on this machine can sustain — inverse of the CPU tier table
+  // Max peak ingress (MB/s) a single broker on this machine can sustain — inverse of the CPU/RAM tier tables
   const machIngressCeil=machineVcpu>=48?200000:machineVcpu>=32?50000:machineVcpu>=24?5000:machineVcpu>=16?500:machineVcpu>=8?50:25;
+  const ramIngressCeil=machineRam>=128?200000:machineRam>=64?500:machineRam>=32?50:25;
 
   // Brokers — each constraint uses utilization-adjusted capacity
   const localDisk=tiered?hotT:totH;
@@ -1388,6 +1389,7 @@ function recalc(){
   const bStor=Math.ceil(localDisk/(maxStor*util));
   const bRF=RF;
   const bCpu=constrained&&machineVcpu>0?Math.max(1,Math.ceil(inPeak/(machIngressCeil*util))):0;
+  const bRam=constrained&&machineRam>0?Math.max(1,Math.ceil(inPeak/(ramIngressCeil*util))):0;
   const cs=[
     {n:'Network',v:bNet,tip:`⌈ totalNetIO / (NIC × util) ⌉ = ⌈ ${fmtMBs(totalNetIO)} / (${fmtNum(NIC)} MB/s × ${(util*100).toFixed(0)}%) ⌉ = ${bNet}`},
     {n:'Disk Write'+(jbod>1?' ('+jbod+'× JBOD)':''),v:bDisk,tip:`⌈ diskWrites / (diskCap × util) ⌉ = ⌈ ${fmtMBs(diskWriteTotal)} / (${maxDW} MB/s × ${(util*100).toFixed(0)}%) ⌉ = ${bDisk}`},
@@ -1395,6 +1397,7 @@ function recalc(){
     {n:'Min RF',v:bRF,tip:`Minimum ${RF} brokers required for RF=${RF}`}
   ];
   if(constrained&&machineVcpu>0) cs.push({n:'CPU ('+machineVcpu+' vCPU machine)',v:bCpu,tip:`Machine sustains ~${fmtMBs(machIngressCeil)} peak ingress/broker (${machineVcpu} vCPU). ⌈ inPeak / (ceil × util) ⌉ = ⌈ ${fmtMBs(inPeak)} / (${fmtMBs(machIngressCeil)} × ${(util*100).toFixed(0)}%) ⌉ = ${bCpu}`});
+  if(constrained&&machineRam>0) cs.push({n:'RAM ('+machineRam+' GB machine)',v:bRam,tip:`Page cache on ${machineRam} GB sustains ~${fmtMBs(ramIngressCeil)} peak ingress/broker before reads spill to disk. ⌈ inPeak / (ceil × util) ⌉ = ⌈ ${fmtMBs(inPeak)} / (${fmtMBs(ramIngressCeil)} × ${(util*100).toFixed(0)}%) ⌉ = ${bRam}`});
   const brokers=Math.max(...cs.map(c=>c.v));
   const lim=cs.reduce((a,b)=>b.v>a.v?b:a).n;
 
@@ -1420,7 +1423,7 @@ function recalc(){
       ? `<li><strong>CPU below ideal:</strong> ${machineVcpu} vCPU vs ~${cpuIdeal} vCPU recommended for ${fmtMBs(inPeak)} peak ingress. Compensated by scaling out — the CPU constraint forces at least ${bCpu} broker(s)${lim.startsWith('CPU')?' (currently the limiting factor)':''}. Expect higher per-broker CPU load during bursts.</li>`
       : `<li><strong>CPU adequate:</strong> ${machineVcpu} vCPU meets the ~${cpuIdeal} vCPU ideal for this ingress.</li>`);
     if(machineRam>0) items.push(ramShort
-      ? `<li><strong>RAM below ideal:</strong> ${machineRam} GB vs ~${ramIdeal} GB recommended. Less OS page cache means more consumer reads hit disk instead of memory, so tailing-consumer latency may rise. RAM does not add brokers — enable tiered storage or add brokers to shrink per-broker data if this matters.</li>`
+      ? `<li><strong>RAM below ideal:</strong> ${machineRam} GB vs ~${ramIdeal} GB recommended. Less OS page cache means consumer reads spill from memory to disk, so the RAM constraint forces at least ${bRam} broker(s)${lim.startsWith('RAM')?' (currently the limiting factor)':''} to shrink per-broker working set. Tiered storage also helps by shortening the hot window.</li>`
       : `<li><strong>RAM adequate:</strong> ${machineRam} GB meets the ~${ramIdeal} GB ideal (JVM heap + page cache).</li>`);
     const anyShort=cpuShort||ramShort;
     machineFitNote=`<div class="info-box ${anyShort?'warn':'info'}" style="margin-top:12px"><strong>${anyShort?'⚠ Machine below ideal spec':'✓ Machine meets ideal spec'}</strong><ul style="margin:8px 0 0;padding-left:18px;font-size:.78rem;line-height:1.5">${items.join('')}</ul></div>`;
@@ -1799,6 +1802,8 @@ ${'─'.repeat(60)}
 
 ${constrained&&machineVcpu>0?`    CPU (${machineVcpu} vCPU machine)     : ${bCpu} brokers
       Machine sustains ~${fmtMBs(machIngressCeil)} peak ingress/broker; ⌈ ${fmtMBs(inPeak)} / (ceil × ${Math.round(util*100)}%) ⌉ = ${bCpu}
+`:''}${constrained&&machineRam>0?`    RAM (${machineRam} GB machine)        : ${bRam} brokers
+      Page cache sustains ~${fmtMBs(ramIngressCeil)} peak ingress/broker; ⌈ ${fmtMBs(inPeak)} / (ceil × ${Math.round(util*100)}%) ⌉ = ${bRam}
 `:''}    >> Recommended (single DC) : ${brokers} brokers
        Formula: max(${cs.map(c=>c.v).join(', ')}) = ${brokers}
        Limiting factor: ${lim}
@@ -1808,7 +1813,7 @@ ${constrained&&machineVcpu>0?`    CPU (${machineVcpu} vCPU machine)     : ${bCpu
     CPU                        : ${cpuB} cores
       ${constrained&&machineVcpu>0?`Constrained to available machine (ideal tier ≈ ${cpuIdeal} cores)${cpuShort?' — below ideal, scaled out to compensate':''}`:`Peak ingress tier ${fmtMBs(inPeak)} → ${cpuB} cores (compression + SSL/TLS overhead)`}
     RAM                        : ${ramB} GB
-      ${constrained&&machineRam>0?`Constrained to available machine (ideal tier ≈ ${ramIdeal} GB)${ramShort?' — below ideal, page cache reduced':''}. `:''}${heap} GB JVM heap + ${ramB-heap} GB OS page cache
+      ${constrained&&machineRam>0?`Constrained to available machine (ideal tier ≈ ${ramIdeal} GB)${ramShort?' — below ideal, scaled out to keep working set in page cache':''}. `:''}${heap} GB JVM heap + ${ramB-heap} GB OS page cache
     JVM Heap (max)             : ${heap} GB
     Disk / broker              : ${diskB.toFixed(1)} TB
       Formula: localDisk / brokers = ${fmtTB(localDisk)} / ${brokers} = ${diskB.toFixed(1)} TB
