@@ -384,7 +384,7 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
   <div class="section-title">Broker & Controller Sizing <span class="line"></span></div>
   <div class="grid-2">
     <div class="card"><div class="card-header"><div class="card-icon blue">🖥️</div><div><div class="card-title">Broker Count by Constraint</div><div class="card-subtitle">Most constraining resource determines count</div></div></div><div id="broker-constraints"></div>
-      <div class="formula-block">Brokers = max( ⌈Net/Cap_net⌉, ⌈Disk/Cap_disk⌉, ⌈Storage/Cap_storage⌉, RF )  — each Cap_* is already utilization-adjusted</div>
+      <div class="formula-block" id="broker-formula"></div>
       <div class="ref-links"><a class="doc-link" href="https://kafka.apache.org/documentation/#brokerconfigs_log.dirs" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> log.dirs (JBOD)</a></div></div>
     <div class="card"><div class="card-header"><div class="card-icon teal">⚙️</div><div><div class="card-title">Recommended Hardware / Broker</div></div></div><div id="broker-hardware"></div></div>
   </div>
@@ -1419,6 +1419,13 @@ function recalc(){
     cs.map(c=>rr(c.n,c.v+' brokers'+(c.n===lim?' <span class="limiting-badge">limiting</span>':''),'',c.tip)).join('')+
     '<div style="margin-top:16px;padding-top:16px;border-top:2px solid var(--border)">'+
     rr('<strong>Recommended Brokers (single DC)</strong>','<strong>'+brokers+'</strong>','highlight',`max(${cs.map(c=>c.v).join(', ')}) = ${brokers}`)+'</div>';
+
+  document.getElementById('broker-formula').innerHTML=
+    'Brokers = max( ⌈Net/Cap_net⌉, ⌈Disk/Cap_disk⌉, ⌈Storage/Cap_storage⌉'+
+    (constrained&&machineVcpu>0?', ⌈inPeak/Cap_cpu⌉':'')+
+    (constrained&&machineRam>0?', ⌈inPeak/Cap_ram⌉':'')+
+    ', RF )  — each Cap_* is already utilization-adjusted'+
+    (constrained&&(machineVcpu>0||machineRam>0)?'<br>Cap_cpu / Cap_ram = peak ingress a single broker of the chosen machine sustains (inverse of the sizing-tier table)':'');
 
   const cpuB=constrained&&machineVcpu>0?machineVcpu:cpuIdeal;
   const ramB=constrained&&machineRam>0?machineRam:ramIdeal;
