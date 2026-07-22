@@ -331,6 +331,31 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
       <div class="info-box info"><strong>When to use:</strong> Recommended when retention &gt; 24h and total storage exceeds ~50 TB. Reduces local disk by 70–90%.<br><br><a href="https://cwiki.apache.org/confluence/display/KAFKA/KIP-405%3A+Kafka+Tiered+Storage" target="_blank">📄 KIP-405: Kafka Tiered Storage</a> · <a href="https://github.com/Aiven-Open/tiered-storage-for-apache-kafka" target="_blank">🔗 Aiven Tiered Storage for Apache Kafka</a></div>
     </div>
   </div>
+  <div class="card">
+    <div class="card-header"><div class="card-icon orange">🧰</div><div><div class="card-title">Available Machine Profile (Gabarit)</div><div class="card-subtitle">Constrain per-broker CPU/RAM to machines you can actually provision</div></div></div>
+    <div class="form-group"><label class="form-label">Sizing Mode <span class="tip" data-tip="Auto-recommend derives an ideal per-broker CPU/RAM tier from your peak ingress — useful as a target, but only if that machine exists in your DC or cloud. Constrain to available machine fixes CPU/RAM to a profile you can actually get, adds a CPU-bound broker constraint, and scales the cluster out (more, smaller brokers) when that machine can't meet the ideal.">?</span></label>
+      <select class="form-select" id="machineMode" onchange="toggleMachineMode();recalc()"><option value="auto" selected>Auto-recommend ideal spec</option><option value="constrained">Constrain to available machine</option></select></div>
+    <div id="machineFields" style="display:none">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Machine Profile <span class="tip" data-tip="Pick a common instance/gabarit or choose Custom to enter your own. Sets per-broker vCPU and RAM only — NIC, disk write and per-broker storage stay in the Broker Hardware card so you can mix and match.">?</span></label>
+          <select class="form-select" id="machinePreset" onchange="applyMachinePreset()">
+            <option value="">Custom…</option>
+            <option value="8,32">8 vCPU / 32 GB — small</option>
+            <option value="12,96">12 vCPU / 96 GB — storage-optimized</option>
+            <option value="16,64" selected>16 vCPU / 64 GB — medium</option>
+            <option value="24,96">24 vCPU / 96 GB</option>
+            <option value="32,128">32 vCPU / 128 GB — large</option>
+            <option value="48,192">48 vCPU / 192 GB — xlarge</option>
+            <option value="64,256">64 vCPU / 256 GB</option>
+          </select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">vCPU / machine <span class="tip" data-tip="Cores available per broker on the machine you can actually provision. Drives a CPU-bound broker constraint: a smaller machine sustains less ingress per broker, so more brokers are required.">?</span></label><input type="number" class="form-input" id="machineVcpu" value="16" min="1" oninput="syncMachinePreset();recalc()"><div class="form-unit">cores per broker</div></div>
+        <div class="form-group"><label class="form-label">RAM / machine <span class="tip" data-tip="Memory available per broker (JVM heap + OS page cache). Checked against the recommended tier — low RAM does not add brokers but shrinks page cache, pushing consumer reads to disk.">?</span></label><input type="number" class="form-input" id="machineRam" value="64" min="1" oninput="syncMachinePreset();recalc()"><div class="form-unit">GB per broker</div></div>
+      </div>
+      <div class="info-box info">Only machines listed here are used for the recommendation. NIC bandwidth, disk write and per-broker storage remain in the <strong>Broker Hardware Assumptions</strong> card — set those to match the same machine. See the <strong>Brokers</strong> tab for the machine-fit verdict.</div>
+    </div>
+  </div>
 </div>
 
 <!-- ═══ THROUGHPUT ═══ -->
@@ -924,6 +949,25 @@ function syncNicPreset(){
   const match=[...sel.options].find(o=>o.value===val);
   sel.value=match?val:'';
 }
+function toggleMachineMode(){
+  const constrained=document.getElementById('machineMode').value==='constrained';
+  document.getElementById('machineFields').style.display=constrained?'block':'none';
+}
+function applyMachinePreset(){
+  const sel=document.getElementById('machinePreset');
+  if(sel.value){
+    const [vcpu,ram]=sel.value.split(',');
+    document.getElementById('machineVcpu').value=vcpu;
+    document.getElementById('machineRam').value=ram;
+    recalc();
+  }else{document.getElementById('machineVcpu').focus();}
+}
+function syncMachinePreset(){
+  const val=document.getElementById('machineVcpu').value+','+document.getElementById('machineRam').value;
+  const sel=document.getElementById('machinePreset');
+  const match=[...sel.options].find(o=>o.value===val);
+  sel.value=match?val:'';
+}
 function applyCompressionPreset(){
   const sel=document.getElementById('compressionPreset');
   if(sel.value){document.getElementById('compression').value=sel.value;recalc();}
@@ -952,6 +996,7 @@ const configFields=[
   {id:'srEnabled',t:'s'},{id:'srSchemas',t:'n'},{id:'srLookups',t:'n'},{id:'srHA',t:'s'},
   {id:'rpEnabled',t:'s'},{id:'rpRequests',t:'n'},{id:'rpPayload',t:'n'},{id:'rpInstances',t:'n'},
   {id:'partProduce',t:'n'},{id:'partConsume',t:'n'},
+  {id:'machineMode',t:'s'},{id:'machineVcpu',t:'n'},{id:'machineRam',t:'n'},
 ];
 
 function saveConfig(){
@@ -1014,6 +1059,8 @@ function loadConfig(){
     // Sync presets
     syncNicPreset();
     syncCompressionPreset();
+    syncMachinePreset();
+    toggleMachineMode();
 
     // Restore DC count first (triggers dcName input generation on recalc)
     if(payload.dcCount) document.getElementById('dcCount').value=payload.dcCount;
@@ -1055,7 +1102,8 @@ function resetConfig(){
     tieredStorage:'1',hotTierHours:24,dcCount:'2',interDcLatency:5,
     srEnabled:'1',srSchemas:200,srLookups:5000,srHA:'2',
     rpEnabled:'1',rpRequests:10000,rpPayload:2048,rpInstances:2,
-    partProduce:30,partConsume:30};
+    partProduce:30,partConsume:30,
+    machineMode:'auto',machineVcpu:16,machineRam:64};
   Object.entries(defaults).forEach(([id,val])=>{
     const el=document.getElementById(id);
     if(el) el.value=val;
@@ -1063,6 +1111,8 @@ function resetConfig(){
   document.getElementById('configName').value='';
   syncNicPreset();
   syncCompressionPreset();
+  syncMachinePreset();
+  toggleMachineMode();
   topology='stretch';
   setTopology('stretch');
   recalc();
@@ -1322,40 +1372,68 @@ function recalc(){
   const recP=Math.max(6,minP);
   const maxPB=4000;
 
+  // Machine gabarit / profile — ideal per-broker tier vs the machine you can actually provision
+  const cpuIdeal=inPeak<50?8:inPeak<500?16:inPeak<5000?24:inPeak<50000?32:48;
+  const ramIdeal=inPeak<50?32:inPeak<500?64:128;
+  const machineMode=(document.getElementById('machineMode')||{}).value||'auto';
+  const constrained=machineMode==='constrained';
+  const machineVcpu=v('machineVcpu'),machineRam=v('machineRam');
+  // Max peak ingress (MB/s) a single broker on this machine can sustain — inverse of the CPU tier table
+  const machIngressCeil=machineVcpu>=48?200000:machineVcpu>=32?50000:machineVcpu>=24?5000:machineVcpu>=16?500:machineVcpu>=8?50:25;
+
   // Brokers — each constraint uses utilization-adjusted capacity
   const localDisk=tiered?hotT:totH;
   const bNet=Math.ceil(totalNetIO/(NIC*util));
   const bDisk=Math.ceil(diskWriteTotal/(maxDW*util));
   const bStor=Math.ceil(localDisk/(maxStor*util));
   const bRF=RF;
+  const bCpu=constrained&&machineVcpu>0?Math.max(1,Math.ceil(inPeak/(machIngressCeil*util))):0;
   const cs=[
     {n:'Network',v:bNet,tip:`⌈ totalNetIO / (NIC × util) ⌉ = ⌈ ${fmtMBs(totalNetIO)} / (${fmtNum(NIC)} MB/s × ${(util*100).toFixed(0)}%) ⌉ = ${bNet}`},
     {n:'Disk Write'+(jbod>1?' ('+jbod+'× JBOD)':''),v:bDisk,tip:`⌈ diskWrites / (diskCap × util) ⌉ = ⌈ ${fmtMBs(diskWriteTotal)} / (${maxDW} MB/s × ${(util*100).toFixed(0)}%) ⌉ = ${bDisk}`},
     {n:'Storage',v:bStor,tip:`⌈ localDisk / (maxStor × util) ⌉ = ⌈ ${fmtTB(localDisk)} / (${maxStor} TB × ${(util*100).toFixed(0)}%) ⌉ = ${bStor}`},
     {n:'Min RF',v:bRF,tip:`Minimum ${RF} brokers required for RF=${RF}`}
   ];
-  const brokers=Math.max(bNet,bDisk,bStor,bRF);
+  if(constrained&&machineVcpu>0) cs.push({n:'CPU ('+machineVcpu+' vCPU machine)',v:bCpu,tip:`Machine sustains ~${fmtMBs(machIngressCeil)} peak ingress/broker (${machineVcpu} vCPU). ⌈ inPeak / (ceil × util) ⌉ = ⌈ ${fmtMBs(inPeak)} / (${fmtMBs(machIngressCeil)} × ${(util*100).toFixed(0)}%) ⌉ = ${bCpu}`});
+  const brokers=Math.max(...cs.map(c=>c.v));
   const lim=cs.reduce((a,b)=>b.v>a.v?b:a).n;
 
   document.getElementById('broker-constraints').innerHTML=
     cs.map(c=>rr(c.n,c.v+' brokers'+(c.n===lim?' <span class="limiting-badge">limiting</span>':''),'',c.tip)).join('')+
     '<div style="margin-top:16px;padding-top:16px;border-top:2px solid var(--border)">'+
-    rr('<strong>Recommended Brokers (single DC)</strong>','<strong>'+brokers+'</strong>','highlight',`max(${bNet}, ${bDisk}, ${bStor}, ${bRF}) = ${brokers}`)+'</div>';
+    rr('<strong>Recommended Brokers (single DC)</strong>','<strong>'+brokers+'</strong>','highlight',`max(${cs.map(c=>c.v).join(', ')}) = ${brokers}`)+'</div>';
 
-  const cpuB=inPeak<50?8:inPeak<500?16:inPeak<5000?24:inPeak<50000?32:48;
-  const ramB=inPeak<50?32:inPeak<500?64:128;
+  const cpuB=constrained&&machineVcpu>0?machineVcpu:cpuIdeal;
+  const ramB=constrained&&machineRam>0?machineRam:ramIdeal;
   const heap=ramB<=32?6:ramB<=64?8:ramB<=128?12:16;
   const diskB=brokers>0?localDisk/brokers:0;
   const dType=jbod>1?jbod+'× NVMe JBOD':(inPeak<10?'SSD':inPeak<500?'NVMe':'NVMe JBOD');
   const nicR=inPeak<250?'10 Gbps':inPeak<2500?'25 Gbps':inPeak<6000?'2×25 Gbps':inPeak<12000?'100 Gbps':'2×100 Gbps';
 
+  // Machine-fit verdict: does the provisionable machine meet the ideal per-broker spec?
+  const cpuShort=constrained&&machineVcpu>0&&machineVcpu<cpuIdeal;
+  const ramShort=constrained&&machineRam>0&&machineRam<ramIdeal;
+  let machineFitNote='';
+  if(constrained&&(machineVcpu>0||machineRam>0)){
+    const items=[];
+    if(machineVcpu>0) items.push(cpuShort
+      ? `<li><strong>CPU below ideal:</strong> ${machineVcpu} vCPU vs ~${cpuIdeal} vCPU recommended for ${fmtMBs(inPeak)} peak ingress. Compensated by scaling out — the CPU constraint forces at least ${bCpu} broker(s)${lim.startsWith('CPU')?' (currently the limiting factor)':''}. Expect higher per-broker CPU load during bursts.</li>`
+      : `<li><strong>CPU adequate:</strong> ${machineVcpu} vCPU meets the ~${cpuIdeal} vCPU ideal for this ingress.</li>`);
+    if(machineRam>0) items.push(ramShort
+      ? `<li><strong>RAM below ideal:</strong> ${machineRam} GB vs ~${ramIdeal} GB recommended. Less OS page cache means more consumer reads hit disk instead of memory, so tailing-consumer latency may rise. RAM does not add brokers — enable tiered storage or add brokers to shrink per-broker data if this matters.</li>`
+      : `<li><strong>RAM adequate:</strong> ${machineRam} GB meets the ~${ramIdeal} GB ideal (JVM heap + page cache).</li>`);
+    const anyShort=cpuShort||ramShort;
+    machineFitNote=`<div class="info-box ${anyShort?'warn':'info'}" style="margin-top:12px"><strong>${anyShort?'⚠ Machine below ideal spec':'✓ Machine meets ideal spec'}</strong><ul style="margin:8px 0 0;padding-left:18px;font-size:.78rem;line-height:1.5">${items.join('')}</ul></div>`;
+  }
+
   document.getElementById('broker-hardware').innerHTML=
-    rr('CPU',cpuB+' cores','',`Based on peak ingress tier: ${fmtMBs(inPeak)} → ${cpuB} cores. Accounts for compression, SSL/TLS overhead.`)+
-    rr('RAM',ramB+' GB','',`${heap} GB JVM heap + ${ramB-heap} GB OS page cache. Page cache is critical for consumer read perf.`)+
+    rr('CPU',cpuB+' cores'+(constrained&&machineVcpu>0?' <span class="limiting-badge" style="background:var(--accent-orange)">machine</span>':''),'',constrained&&machineVcpu>0?`Constrained to available machine: ${machineVcpu} vCPU. Ideal tier for ${fmtMBs(inPeak)} peak ingress ≈ ${cpuIdeal} cores.`:`Based on peak ingress tier: ${fmtMBs(inPeak)} → ${cpuB} cores. Accounts for compression, SSL/TLS overhead.`)+
+    rr('RAM',ramB+' GB'+(constrained&&machineRam>0?' <span class="limiting-badge" style="background:var(--accent-orange)">machine</span>':''),'',constrained&&machineRam>0?`Constrained to available machine: ${machineRam} GB. Ideal tier ≈ ${ramIdeal} GB. ${heap} GB JVM heap + ${ramB-heap} GB OS page cache.`:`${heap} GB JVM heap + ${ramB-heap} GB OS page cache. Page cache is critical for consumer read perf.`)+
     rr('JVM Heap (max)',heap+' GB','',`Scaled to cluster size. Never exceed 16 GB — GC pauses degrade latency above that.`)+
     rr('Disk / broker',diskB.toFixed(1)+' TB','',`localDisk / brokers = ${fmtTB(localDisk)} / ${brokers} = ${diskB.toFixed(1)} TB`)+
     rr('Disk layout',dType,'',jbod>1?`${jbod} disks × ${dwSingle} MB/s = ${maxDW} MB/s aggregate write. JBOD configured via log.dirs.`:`Single disk at ${dwSingle} MB/s`)+
-    rr('Network',nicR,'',`Recommended based on peak ingress ${fmtMBs(inPeak)}. Each message generates RF−1 replication reads + C consumer reads.`);
+    rr('Network',nicR,'',`Recommended based on peak ingress ${fmtMBs(inPeak)}. Each message generates RF−1 replication reads + C consumer reads.`)+
+    machineFitNote;
 
   const ctrlN=brokers<50?3:5;
   const ctrlCpu=brokers<20?4:brokers<50?8:16;
@@ -1646,6 +1724,7 @@ ${'─'.repeat(60)}
   JBOD disks / broker        : ${jbod}
   Max storage / broker       : ${maxStor} TB
   NIC capacity               : ${fmtNum(NIC)} MB/s
+  Machine profile            : ${constrained?'Constrained to '+machineVcpu+' vCPU / '+machineRam+' GB (available gabarit)':'Auto-recommend ideal spec'}
   Tiered storage             : ${tiered?'Enabled (hot tier: '+hotH+'h)':'Disabled'}
 ${DC>1?'  Inter-DC latency          : '+dcLat+' ms RTT\n':''}
 2. THROUGHPUT ANALYSIS
@@ -1718,16 +1797,18 @@ ${'─'.repeat(60)}
     Min RF                     : ${bRF} brokers
       Minimum ${RF} brokers required for RF=${RF}
 
-    >> Recommended (single DC) : ${brokers} brokers
-       Formula: max(${bNet}, ${bDisk}, ${bStor}, ${bRF}) = ${brokers}
+${constrained&&machineVcpu>0?`    CPU (${machineVcpu} vCPU machine)     : ${bCpu} brokers
+      Machine sustains ~${fmtMBs(machIngressCeil)} peak ingress/broker; ⌈ ${fmtMBs(inPeak)} / (ceil × ${Math.round(util*100)}%) ⌉ = ${bCpu}
+`:''}    >> Recommended (single DC) : ${brokers} brokers
+       Formula: max(${cs.map(c=>c.v).join(', ')}) = ${brokers}
        Limiting factor: ${lim}
 
   b) Per-broker hardware:
 
     CPU                        : ${cpuB} cores
-      Peak ingress tier ${fmtMBs(inPeak)} → ${cpuB} cores (compression + SSL/TLS overhead)
+      ${constrained&&machineVcpu>0?`Constrained to available machine (ideal tier ≈ ${cpuIdeal} cores)${cpuShort?' — below ideal, scaled out to compensate':''}`:`Peak ingress tier ${fmtMBs(inPeak)} → ${cpuB} cores (compression + SSL/TLS overhead)`}
     RAM                        : ${ramB} GB
-      ${heap} GB JVM heap + ${ramB-heap} GB OS page cache
+      ${constrained&&machineRam>0?`Constrained to available machine (ideal tier ≈ ${ramIdeal} GB)${ramShort?' — below ideal, page cache reduced':''}. `:''}${heap} GB JVM heap + ${ramB-heap} GB OS page cache
     JVM Heap (max)             : ${heap} GB
     Disk / broker              : ${diskB.toFixed(1)} TB
       Formula: localDisk / brokers = ${fmtTB(localDisk)} / ${brokers} = ${diskB.toFixed(1)} TB
