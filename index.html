@@ -2150,22 +2150,24 @@ function updateScenario(el){
 
 function renderMon(){
   const m=[
+    // Ordered by criticality: controller/availability → replication → distribution → broker capacity → consumer lag → client → hardware
+    ['ActiveControllerCount','Controller health','0 any node','0 cluster','KRaft quorum check'],
+    ['OfflinePartitionsCount','Availability','> 0','> 0 for 5 min','Immediate investigation'],
     ['UnderReplicatedPartitions','Replication lag','> 0 for 5 min','> 0 for 15 min','Check disk, network, broker health'],
     ['IsrShrinksPerSec','Followers leaving ISR','> 0 sustained','Frequent spikes','Slow broker? disk latency?'],
+    ['PartitionCount (per broker)','Replica distribution / per-broker load','> 3,200 replicas or > 10% above cluster avg','> 4,000 replicas (Confluent pre-KRaft soft limit)','Reassign partitions / Cruise Control / add brokers'],
+    ['PartitionCount (sum across brokers)','Cluster-wide partition footprint','> 160,000 replicas','> 200,000 replicas (Confluent pre-KRaft soft limit)','Consolidate topics / split cluster / migrate to KRaft'],
+    ['LeaderCount (per broker)','Leader distribution / hot brokers','> 10% from cluster avg (leader.imbalance.per.broker.percentage)','> 20% from avg or 0 on a live broker','Preferred leader election / check auto.leader.rebalance.enable'],
     ['RequestHandlerAvgIdlePercent','Request thread saturation','< 30%','< 15%','Add brokers / num.io.threads'],
     ['NetworkProcessorAvgIdlePercent','Network thread saturation','< 30%','< 15%','Add brokers / num.network.threads'],
+    ['RequestQueueSize','Backpressure','> 10 avg','> 50 avg','Scale out'],
+    ['LogFlushRateAndTimeMs (p99)','Disk write perf','> 50 ms','> 200 ms','Disk saturated — NVMe / JBOD'],
+    ['records-lag-max (consumer group lag)','Consumers falling behind','Growing for 5 min','Lag breaches SLA / nears retention','Scale consumers (≤ partitions) / check processing time'],
     ['ProduceTotalTimeMs (p99)','Producer latency','> 100 ms','> 500 ms','Disk, replication, acks'],
     ['FetchConsumerTotalTimeMs (p99)','Consumer latency','> 200 ms','> 1000 ms','Page cache miss? lag?'],
-    ['LogFlushRateAndTimeMs (p99)','Disk write perf','> 50 ms','> 200 ms','Disk saturated — NVMe / JBOD'],
-    ['RequestQueueSize','Backpressure','> 10 avg','> 50 avg','Scale out'],
     ['CPU utilization','Compute headroom','> 60%','> 80%','Add brokers'],
     ['Disk utilization (%)','Storage headroom','> 60%','> 75%','Tiered storage / add disks'],
     ['NIC throughput (% cap)','Network headroom','> 50%','> 70%','Add brokers / upgrade NIC'],
-    ['ActiveControllerCount','Controller health','0 any node','0 cluster','KRaft quorum check'],
-    ['OfflinePartitionsCount','Availability','> 0','> 0 for 5 min','Immediate investigation'],
-    ['kafka.server:type=ReplicaManager,name=PartitionCount (per broker)','Replica distribution / per-broker load','> 3,200 replicas or > 10% above cluster avg','> 4,000 replicas (Confluent pre-KRaft soft limit)','Reassign partitions / Cruise Control / add brokers'],
-    ['kafka.server:type=ReplicaManager,name=PartitionCount (sum across brokers)','Cluster-wide partition footprint','> 160,000 replicas','> 200,000 replicas (Confluent pre-KRaft soft limit)','Consolidate topics / split cluster / migrate to KRaft'],
-    ['kafka.server:type=ReplicaManager,name=LeaderCount (per broker)','Leader distribution / hot brokers','> 10% from cluster avg (leader.imbalance.per.broker.percentage)','> 20% from avg or 0 on a live broker','Preferred leader election / check auto.leader.rebalance.enable'],
   ];
   document.getElementById('monitoring-body').innerHTML=m.map(x=>`<tr><td><span class="mon-metric">${x[0]}</span></td><td>${x[1]}</td><td class="mon-warn">${x[2]}</td><td class="mon-crit">${x[3]}</td><td>${x[4]}</td></tr>`).join('');
 }
