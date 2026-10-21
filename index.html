@@ -513,7 +513,7 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
   <div class="section-title">Monitoring & Alert Thresholds <span class="line"></span></div>
   <div class="card"><div class="card-header"><div class="card-icon red">🚨</div><div><div class="card-title">Key Metrics</div><div class="card-subtitle">JMX / Prometheus with recommended thresholds</div></div></div>
     <table class="mon-table"><thead><tr><th>Metric</th><th>Detects</th><th>⚠ Warning</th><th>🔴 Critical</th><th>Action</th></tr></thead><tbody id="monitoring-body"></tbody></table>
-    <div class="ref-links" style="margin-top:16px"><a class="doc-link" href="https://kafka.apache.org/documentation/#monitoring" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> Kafka monitoring</a></div></div>
+    <div class="ref-links" style="margin-top:16px"><a class="doc-link" href="https://kafka.apache.org/documentation/#monitoring" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> Kafka monitoring</a> <a class="doc-link" href="https://www.confluent.io/blog/apache-kafka-supports-200k-partitions-per-cluster/" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> Partition soft limits (Confluent)</a></div></div>
 </div>
 
 <!-- ═══ SUMMARY ═══ -->
@@ -2163,6 +2163,9 @@ function renderMon(){
     ['NIC throughput (% cap)','Network headroom','> 50%','> 70%','Add brokers / upgrade NIC'],
     ['ActiveControllerCount','Controller health','0 any node','0 cluster','KRaft quorum check'],
     ['OfflinePartitionsCount','Availability','> 0','> 0 for 5 min','Immediate investigation'],
+    ['kafka.server:type=ReplicaManager,name=PartitionCount (per broker)','Replica distribution / per-broker load','> 3,200 replicas or > 10% above cluster avg','> 4,000 replicas (Confluent pre-KRaft soft limit)','Reassign partitions / Cruise Control / add brokers'],
+    ['kafka.server:type=ReplicaManager,name=PartitionCount (sum across brokers)','Cluster-wide partition footprint','> 160,000 replicas','> 200,000 replicas (Confluent pre-KRaft soft limit)','Consolidate topics / split cluster / migrate to KRaft'],
+    ['kafka.server:type=ReplicaManager,name=LeaderCount (per broker)','Leader distribution / hot brokers','> 10% from cluster avg (leader.imbalance.per.broker.percentage)','> 20% from avg or 0 on a live broker','Preferred leader election / check auto.leader.rebalance.enable'],
   ];
   document.getElementById('monitoring-body').innerHTML=m.map(x=>`<tr><td><span class="mon-metric">${x[0]}</span></td><td>${x[1]}</td><td class="mon-warn">${x[2]}</td><td class="mon-crit">${x[3]}</td><td>${x[4]}</td></tr>`).join('');
 }
